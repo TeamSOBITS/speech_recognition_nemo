@@ -1,35 +1,61 @@
 #!/bin/bash
 echo "╔══╣ Install: speech_recognition_nemo (STARTING) ╠══╗"
 
-set -e  # 途中で失敗したら即終了
+# Keep the current directory for later use
+SCRIPT_DIR=$(pwd)
 
-# apt の自動確認スキップ
-export DEBIAN_FRONTEND=noninteractive
+# Exit immediately if a command exits with a non-zero status.
+set -e
+
+# --- System Package Installation ---
+echo "--- Updating apt package lists and installing system dependencies ---"
+export DEBIAN_FRONTEND=noninteractive # Skip interactive apt prompts
 
 sudo apt update -y
 
-sudo apt install -y ros-humble-vision-msgs
+# Install apt packages one by one, automatically answering 'yes' to prompts
+yes | sudo apt install -y ros-humble-vision-msgs
+yes | sudo apt install -y libportaudio2
+yes | sudo apt install -y libportaudiocpp0
+yes | sudo apt install -y portaudio19-dev
 
-sudo apt install -y libportaudio2 libportaudiocpp0 portaudio19-dev
+echo "System dependencies installed."
 
+# --- Python Package Installation ---
+echo "--- Installing Python packages via pip3 ---"
 
-# Python パッケージのインストールと整備
-pip3 install nemo_toolkit[asr]
+# Install pip packages one by one
+pip3 install -q "nemo_toolkit[asr]"
+pip3 install -q sounddevice
+pip3 install -q playsound
+pip3 install -q pyaudio
+pip3 install -q soundfile
+pip3 install -q pygame
 
-pip3 install sounddevice
+echo "Python packages installed."
 
-pip3 install playsound
+# --- Download NeMo Models ---
+echo "--- Downloading NeMo ASR models ---"
+# Change to the script's directory
+cd "$SCRIPT_DIR" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
+python3 model_download.py
+echo "NeMo ASR models downloaded."
 
-pip3 install pyaudio
+# --- Clone ROS Packages ---
+echo "--- Cloning ROS packages ---"
+cd .. # Go up one directory to clone sibling repositories
 
-pip3 install -q soundfile pygame
-
-# ROS パッケージのクローン
-cd ~/colcon_ws/src/
-if [ ! -d "sobits_msgs" ]; then
+SOBITS_MSGS_REPO="sobits_msgs"
+# Check if the repository already exists
+if [ ! -d "$SOBITS_MSGS_REPO" ]; then
+    echo "Cloning $SOBITS_MSGS_REPO repository..."
     git clone -b humble-devel https://github.com/TeamSOBITS/sobits_msgs.git
+    echo "$SOBITS_MSGS_REPO cloned successfully."
 else
-    echo "sobits_msgs リポジトリはすでに存在します。スキップします。"
+    echo "$SOBITS_MSGS_REPO repository already exists. Skipping clone."
 fi
+
+# Return to the original script directory
+cd "$SCRIPT_DIR" || { echo "Error: Could not return to $SCRIPT_DIR"; exit 1; }
 
 echo "╚══╣ Install: speech_recognition_nemo (FINISHED) ╠══╝"
