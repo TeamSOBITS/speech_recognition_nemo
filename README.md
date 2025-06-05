@@ -87,7 +87,7 @@ speech_recognition_nemoは以下の言語に対応しています．
 
 1. [model_download.py](speech_recognition_nemo/model_download.py)の**model_name**を使用するモデル名に書き換えて以下を実行し，モデルをダンロードする．
 ```sh
-ros2 run speech_recognition_nemo model_download.py
+ros2 run speech_recognition_nemo model_download
 ```
 
 2. [nemo_server.launch.py](launch/nemo_server.launch.py )の**model_name**も同様に，使用するモデル名に書き換えてください．
