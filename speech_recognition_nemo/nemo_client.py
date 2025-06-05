@@ -6,11 +6,6 @@ from sobits_interfaces.action import SpeechRecognition
 import sys
 
 class SpeechRecognitionClient(Node):
-    """
-    ROS 2 アクションクライアントのノード。
-    SpeechRecognition アクションを使用して音声認識サービスにリクエストを送信します。
-    ユーザーのキー入力に応じて音声認識を開始し、結果を表示します。
-    """
     def __init__(self):
         super().__init__('speech_recognition_client')
         # アクションクライアントを初期化
@@ -48,10 +43,6 @@ class SpeechRecognitionClient(Node):
         self._send_goal_future.add_done_callback(self.goal_response_callback)
 
     def goal_response_callback(self, future):
-        """
-        ゴールリクエストに対するサーバーからの応答を処理します。
-        ゴールが受け入れられた場合、結果の取得を待ちます。
-        """
         try:
             goal_handle = future.result()
         except Exception as e:
@@ -71,10 +62,6 @@ class SpeechRecognitionClient(Node):
         self._get_result_future.add_done_callback(self.get_result_callback)
 
     def get_result_callback(self, future):
-        """
-        アクションの結果が返ってきたときに呼び出されます。
-        結果を保存し、アクションの完了を通知します。
-        """
         try:
             result = future.result().result
             self.result_text = result.result_text
@@ -88,10 +75,6 @@ class SpeechRecognitionClient(Node):
                 self._action_done_future.set_result(False) # アクション失敗を通知
 
     def feedback_callback(self, feedback_msg):
-        """
-        アクション実行中にサーバーから送信されるフィードバックを処理します。
-        途中経過のテキストを表示します。
-        """
         feedback = feedback_msg.feedback
         self.get_logger().info(f'フィードバック: {feedback.addition_text}')
 
@@ -101,11 +84,10 @@ def main(args=None):
 
     # 音声認識のパラメータを設定
     timeout_sec = 5  # 音声認識のタイムアウト時間（秒）
-    feedback_rate = 1.0  # フィードバックの頻度（秒ごと）
+    feedback_rate = 0.5  # フィードバックの頻度（秒ごと）
     silent_mode = False  # サイレントモードの設定（True: 音声なし, False: 音声あり）
 
-    print("--- 音声認識クライアント ---")
-    print("何かキーを押してEnterで音声認識を開始します。")
+    print("何かキーを押してEnterで音声認識を開始")
     print("'q' と入力してEnterで終了します。")
 
     try:
@@ -136,10 +118,8 @@ def main(args=None):
     except Exception as e:
         client.get_logger().error(f"予期せぬエラーが発生しました: {e}")
     finally:
-        # ROS 2システムをシャットダウン
         client.destroy_node()
         rclpy.shutdown()
-        sys.exit(0) # プロセスを確実に終了
-
+        sys.exit(0)
 if __name__ == '__main__':
     main()
