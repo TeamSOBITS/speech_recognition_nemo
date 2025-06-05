@@ -3,195 +3,180 @@ from rclpy.node import Node
 from rclpy.action import ActionServer, CancelResponse, GoalResponse
 from rclpy.callback_groups import ReentrantCallbackGroup 
 
-from sobits_interfaces.action import SpeechRecognition
+from sobits_interfaces.action import SpeechRecognition 
 from ament_index_python.packages import get_package_share_directory
 
-import nemo.collections.asr as nemo_asr
-
-from playsound import playsound
-import pyaudio
-import wave
-import os
-import time
-import threading # playsound の非同期化のために追加
+import nemo.collections.asr as nemo_asr # NeMo ASRライブラリ
+from playsound import playsound # サウンド再生
+import pyaudio # オーディオ入出力
+import wave # WAVファイル処理
+import os # OS操作（パスなど）
+import time # 時間計測
+import threading # 非同期処理
 
 class NemoServer(Node):
-    """
-    NeMo を使用した音声認識アクションサーバーのノード。
-    ROS 2 アクションを通じて音声認識サービスを提供します。
-    """
+    # 音声ファイルのパス設定
+    SOUND_FILES_PATH = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
+    # 録音済みWAVファイルの出力ディレクトリ
+    AUDIO_OUTPUT_DIR = os.path.join(get_package_share_directory('speech_recognition_nemo'), 'sound_file')
+    
     def __init__(self):
         super().__init__('nemo_server')
+        self.initialized_successfully = False # 初期化成功フラグ
 
-        # パラメータの宣言とデフォルト値の設定
-        self.declare_parameter('model', 'nvidia/parakeet-tdt_ctc-0.6b-ja') # 使用する NeMo モデル
-        self.declare_parameter('sample_rate',  48000) # サンプリングレート
+        # --- ROSパラメータ宣言と取得 ---
+        self.declare_parameter('model', 'nvidia/parakeet-tdt-0.6b-v2') # NeMoモデル名
+        self.declare_parameter('sample_rate', 48000) # サンプリングレート
         self.declare_parameter('chunk_size', 1024) # オーディオチャンクサイズ
-        self.declare_parameter('channels', 1) # オーディオチャンネル数
+        self.declare_parameter('channels', 1) # チャンネル数
         
-        # 宣言したパラメータの値を取得
-        # NeMo モデルをロード
-        self.model = nemo_asr.models.ASRModel.from_pretrained(self.get_parameter('model').get_parameter_value().string_value)
+        # パラメータ値をインスタンス変数に格納
+        self.nemo_model_name = self.get_parameter('model').get_parameter_value().string_value
         self.sample_rate = self.get_parameter('sample_rate').get_parameter_value().integer_value
         self.channels = self.get_parameter('channels').get_parameter_value().integer_value
         self.chunk_size = self.get_parameter('chunk_size').get_parameter_value().integer_value
-        self.audio_format = pyaudio.paInt16 # PyAudio で使用するオーディオフォーマット
+        self.audio_format = pyaudio.paInt16 # PyAudioフォーマット
 
-        # パッケージ共有ディレクトリのパスを取得
-        self.path = get_package_share_directory('speech_recognition_nemo')
-        self.sound_folder_path = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
+        # --- NeMoモデルのロード ---
+        self.get_logger().info(f"NeMoモデルをロード中: {self.nemo_model_name}")
+        try:
+            self.model = nemo_asr.models.ASRModel.from_pretrained(self.nemo_model_name)
+        except Exception as e: # モデルロード失敗時は致命的エラー
+            self.get_logger().fatal(f"NeMoモデルのロードに失敗: {e}. ノード初期化を中止します。")
+            return # 初期化中止
 
-        # アクションサーバーの初期化
-        self.server = ActionServer(
-            self,
-            SpeechRecognition, # アクションインターフェースの型
-            "speech_recognition", # アクション名
-            execute_callback=self.speech_to_text, # ゴールが受け入れられたときに実行されるコールバック
-            callback_group=ReentrantCallbackGroup(), # 並行処理を可能にするためのコールバックグループ
-            goal_callback=self.goal_callback, # ゴールリクエスト受信時のコールバック
-            cancel_callback=self.cancel_callback) # キャンセルリクエスト受信時のコールバック
+        # --- WAV出力ディレクトリの準備 ---
+        try:
+            os.makedirs(self.AUDIO_OUTPUT_DIR, exist_ok=True) # ディレクトリが存在しない場合のみ作成
+            self.get_logger().info(f"WAV出力ディレクトリを準備: {self.AUDIO_OUTPUT_DIR}")
+        except OSError as e: # ディレクトリ作成失敗時は致命的エラー
+            self.get_logger().fatal(f"WAV出力ディレクトリ作成失敗: {e}. ノード初期化を中止します。")
+            self.model = None # ファイル保存不可のためモデルも実質無効化
+            return 
         
-        self.get_logger().info('NeMo Server is ready and waiting for service requests.')
+        # --- アクションサーバーの初期化 ---
+        self.action_server = ActionServer(
+            self, SpeechRecognition, "speech_recognition", # アクション名
+            execute_callback=self._execute_speech_to_text, # ゴール実行コールバック
+            callback_group=ReentrantCallbackGroup(), # 並列処理用コールバックグループ
+            goal_callback=self._goal_callback, # ゴール受付コールバック
+            cancel_callback=self._cancel_callback) # キャンセル受付コールバック
+        
+        self.initialized_successfully = True # 全ての初期化成功
+        self.get_logger().warn('NeMo Server is READY and waiting for requests.') # 起動完了ログ
 
-    def goal_callback(self, goal_request):
-        """
-        ゴールリクエストが来たときに呼び出されます。
-        ゴールを受け入れるかどうかを決定します。
-        """
-        self.get_logger().info('Received goal request')
+    def _goal_callback(self, goal_request): # ゴールリクエスト受付時の処理
+        self.get_logger().info('ゴールリクエストを受信しました。')
         return GoalResponse.ACCEPT # ゴールを受け入れる
 
-    def cancel_callback(self, goal_handle):
-        """
-        キャンセルリクエストが来たときに呼び出されます。
-        キャンセルを受け入れるかどうかを決定します。
-        """
-        self.get_logger().info('Received cancel request')
+    def _cancel_callback(self, goal_handle): # キャンセルリクエスト受付時の処理
+        self.get_logger().info('キャンセルリクエストを受信しました。')
         return CancelResponse.ACCEPT # キャンセルを受け入れる
     
-    async def speech_to_text(self, goal_handle):
-        """
-        音声認識を実行するメインの非同期コールバック。
-        アクションのゴールが受け入れられたときに実行されます。
-        フィードバックは返さず、最終的な結果のみを返します。
-        """
-        response = SpeechRecognition.Result() # 結果メッセージ
+    async def _execute_speech_to_text(self, goal_handle): # 音声認識実行のメイン処理
+        response = SpeechRecognition.Result()
+        audio_interface = None # PyAudioインターフェース
+        audio_stream = None # オーディオストリーム
 
-        # playsound を非同期で実行するためのヘルパー関数
-        def _play_sound_async(file_path):
-            playsound(file_path)
-
-        # サイレントモードでない場合、開始音を再生 (非同期)
-        if (not goal_handle.request.silent_mode):
-            threading.Thread(target=_play_sound_async, 
-                             args=(os.path.join(self.sound_folder_path, 'start_sound.mp3'),)).start()
-
-        audio = pyaudio.PyAudio()
-        try:
-            # オーディオストリームを開く
-            stream = audio.open(format=self.audio_format,
-                                channels=self.channels,
-                                rate=self.sample_rate,
-                                input=True, # 入力ストリームとして設定
-                                frames_per_buffer=self.chunk_size) # バッファごとのフレーム数
-        except Exception as e:
-            self.get_logger().error(f"Audio stream error: {e}")
-            goal_handle.abort() # ストリームエラーでゴールを中止
-            response.result_text = "オーディオストリームエラー"
+        # --- 事前チェック ---
+        if self.model is None or not os.path.isdir(self.AUDIO_OUTPUT_DIR): # モデルまたはディレクトリの準備状況確認
+            self.get_logger().error("音声認識のシステム準備ができていません。")
+            goal_handle.abort() # ゴールを中止
+            response.result_text = "システムエラー"
             return response
 
-        frames = [] # 録音された全オーディオフレームを保存
-        
-        self.get_logger().info(f"Recording for {goal_handle.request.timeout_sec} seconds...")
-        # 録音開始時刻を記録
-        recording_start_time = time.time()
-        
-        # 録音終了予定時刻を計算
-        recording_end_target_time = recording_start_time + goal_handle.request.timeout_sec
+        # --- 開始音再生 (非同期) ---
+        if not goal_handle.request.silent_mode: # サイレントモードでなければ再生
+            threading.Thread(target=self._play_sound, args=('start_sound.mp3',)).start()
 
-        # 実際の経過時間に基づいてオーディオを録音
-        while time.time() < recording_end_target_time:
-            # キャンセルリクエストがあるかチェック
-            if goal_handle.is_cancel_requested:
-                goal_handle.canceled() # ゴールをキャンセル済みとしてマーク
-                self.get_logger().info('Goal canceled')
-                response.result_text = "" # 結果を空にする
-                return response # 関数を終了
+        try:
+            audio_interface = pyaudio.PyAudio() # PyAudio初期化
+            audio_stream = audio_interface.open( # オーディオストリームオープン
+                format=self.audio_format, channels=self.channels,
+                rate=self.sample_rate, input=True, frames_per_buffer=self.chunk_size)
+            self.get_logger().info('録音開始。')
 
-            # PyAudio.Stream.read() から 'timeout' 引数を削除
-            data = stream.read(self.chunk_size, exception_on_overflow=False)
-            frames.append(data) # 全フレームに追加
+            # --- 録音ループ ---
+            frames = []
+            start_time = time.time()
+            end_time = start_time + goal_handle.request.timeout_sec # タイムアウト秒まで録音
+            while time.time() < end_time:
+                if goal_handle.is_cancel_requested: # キャンセル要求があれば中断
+                    goal_handle.canceled()
+                    self.get_logger().info('録音中にキャンセルされました。')
+                    response.result_text = ""
+                    return response
+                frames.append(audio_stream.read(self.chunk_size, exception_on_overflow=False)) # オーディオデータ読み込み
+            self.get_logger().info(f"録音終了。時間: {time.time() - start_time:.2f}秒。")
 
-        # 録音終了時刻を記録
-        recording_end_time = time.time()
-        recording_duration = recording_end_time - recording_start_time
-        self.get_logger().info(f"Recording finished. Duration: {recording_duration:.2f} seconds (Requested: {goal_handle.request.timeout_sec} seconds).")
+            # --- WAVファイル保存 ---
+            wav_path = os.path.join(self.AUDIO_OUTPUT_DIR, 'output.wav') # 出力パス構築
+            with wave.open(wav_path, 'wb') as wf: # WAVファイル書き込み
+                wf.setnchannels(self.channels)
+                wf.setsampwidth(audio_interface.get_sample_size(self.audio_format))
+                wf.setframerate(self.sample_rate)
+                wf.writeframes(b''.join(frames)) # フレームデータ書き込み
+            self.get_logger().info(f'音声をファイルに保存: {wav_path}')
 
-        # サイレントモードでない場合、終了音を再生 (非同期)
-        if (not goal_handle.request.silent_mode):
-            threading.Thread(target=_play_sound_async, 
-                             args=(os.path.join(self.sound_folder_path, 'end_sound.mp3'),)).start()
+            # --- 文字起こし ---
+            self.get_logger().info('文字起こしを開始')
+            transcription_start_time = time.time()
+            result = self.model.transcribe([wav_path]) # NeMoで文字起こし
+            transcribed_text = result[0].text if result else "" # 結果取得
+            
+            if not transcribed_text:
+                self.get_logger().warn("文字起こし結果が空。")
+                response.result_text = "音声が認識されませんでした。"
+            else:
+                self.get_logger().info(f"文字起こしテキスト: {transcribed_text}")
+                response.result_text = transcribed_text
 
-        # オーディオストリームを停止して閉じる
-        stream.stop_stream()
-        stream.close()
-        audio.terminate()
+            self.get_logger().info(f"文字起こし完了 (時間: {time.time() - transcription_start_time:.2f}秒)。")
 
-        # 録音されたオーディオをファイルに保存
-        output_wav_path = os.path.join(self.path, 'sound_file', 'output.wav')
-        self.get_logger().info('Saving audio to: {}'.format(output_wav_path))
-        with wave.open(output_wav_path, 'wb') as wf:
-            wf.setnchannels(self.channels)
-            wf.setsampwidth(audio.get_sample_size(self.audio_format))
-            wf.setframerate(self.sample_rate)
-            wf.writeframes(b''.join(frames))
+            goal_handle.succeed() # ゴール成功
+            return response
 
-        # --- 文字起こし開始 ---
-        self.get_logger().info('Starting transcription.')
-        
-        start_time = time.time() # 処理開始時刻を記録
+        except Exception as e: # 処理中の予期せぬエラー
+            self.get_logger().error(f"音声認識中にエラー発生: {e}")
+            goal_handle.abort() # ゴール中止
+            response.result_text = "認識処理中にエラーが発生しました"
+            return response
+        finally:
+            # --- リソース解放 ---
+            if audio_stream: # ストリームがあれば閉じる
+                try: audio_stream.stop_stream(); audio_stream.close()
+                except Exception as e: self.get_logger().warn(f"ストリームクリーンアップエラー: {e}")
+            if audio_interface: # インターフェースがあれば終了
+                try: audio_interface.terminate()
+                except Exception as e: self.get_logger().warn(f"PyAudioクリーンアップエラー: {e}")
 
-        # 録音されたオーディオファイルを NeMo モデルで文字起こし
-        # ファイルパスのリストを渡す方式に戻しています
-        result = self.model.transcribe([output_wav_path], timestamps=True)
+            # --- 終了音再生 (非同期) ---
+            if not goal_handle.request.silent_mode: # サイレントモードでなければ再生
+                threading.Thread(target=self._play_sound, args=('end_sound.mp3',)).start()
 
-        end_time = time.time() # 処理終了時刻を記録
-        elapsed_time = end_time - start_time # 経過時間を計算
-        print(f"--- 文字起こしが完了 (処理時間: {elapsed_time:.2f}秒) ---")
-
-        # 文字起こし結果の表示
-        print("\n--- 文字起こしされたテキスト ---")
-        transcribed_text = result[0].text if result and len(result) > 0 else ""
-        print(transcribed_text)
-
-        # セグメントレベルのタイムスタンプ表示 (オプション)
-        if hasattr(result[0], 'timestamp') and 'segment' in result[0].timestamp:
-            print("\n--- セグメントタイムスタンプ ---")
-            segment_timestamps = result[0].timestamp['segment']
-            for stamp in segment_timestamps:
-                print(f"{stamp['start']:.2f}s - {stamp['end']:.2f}s : {stamp['segment']}")
-        else:
-            print("\nセグメントタイムスタンプは利用できません。")
-
-        # 結果をアクションのレスポンスに設定
-        response.result_text = transcribed_text
-        goal_handle.succeed() # ゴールを成功としてマーク
-        return response
+    def _play_sound(self, file_name): # サウンド再生ヘルパー関数
+        try:
+            playsound(os.path.join(self.SOUND_FILES_PATH, file_name))
+        except Exception as e:
+            self.get_logger().warn(f"サウンドファイル再生失敗 '{file_name}': {e}")
 
 def main(args=None):
+    rclpy.init(args=args)
+    server = None # serverをNoneで初期化
+
     try:
-        # ROS 2 Python クライアントライブラリを初期化
-        rclpy.init(args=args)
-        # NemoServer ノードのインスタンスを作成
-        server = NemoServer()
-        # ノードをスピンさせて、コールバックが処理されるようにする
-        rclpy.spin(server)
-        
-    # キーボードからの割り込み (Ctrl+C) または外部シャットダウン時に終了
-    except (KeyboardInterrupt, rclpy.utilities.ExternalShutdownException):
-        pass # エラーメッセージを表示せずにクリーンに終了
+        server = NemoServer() # ノードインスタンス作成
+        if server.initialized_successfully: # 初期化成功ならスピン
+            rclpy.spin(server)
+        # 初期化失敗時は__init__でfatalログ出力済み
+
+    except (KeyboardInterrupt, rclpy.utilities.ExternalShutdownException): # 割り込みまたは外部シャットダウン
+        if server: # ロガーが利用可能なら
+            server.get_logger().info('ノードがシャットダウンされました。')
+        else: # ロガー利用不可なら直接出力
+            print('ノードがシャットダウンされました。(ロガー利用不可)')
     finally:
-        rclpy.shutdown()
+        rclpy.shutdown() # ROS 2シャットダウン
 
 if __name__ == '__main__':
     main()
