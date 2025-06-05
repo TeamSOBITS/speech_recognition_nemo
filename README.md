@@ -14,7 +14,7 @@
 <!-- レポジトリの概要 -->
 ## 概要
 
-speech_recognition_nemoは，NeMo Frameworkの自動音声認識（ASR）機能をROS2のアクション通信に対応させたものです．高速で高制度な音声認識を提供します．
+speech_recognition_nemoは，NeMo Frameworkの自動音声認識（ASR）機能をROS2のアクション通信に対応させたものです．高速で高精度な音声認識を提供します．
 
 
 NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモーダルモデル（MM），自動音声認識（ASR），テキスト読み上げ（TTS），そしてコンピュータービジョン（CV）の分野に取り組む研究者やPyTorch開発者向けに構築された，スケーラブルでクラウドネイティブな生成AIフレームワークです．
@@ -26,7 +26,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 ここで，本レポジトリのセットアップ方法について説明します．
 
 ### 環境条件
-まず，以下の環境を整えてから，次のインストール段階に進んでください．
+まず，以下の環境を整えてから，次のインストール方法に進んでください．
 | System  | Version |
 | --- | --- |
 | Ubuntu | 22.04 (Jammy Jellyfish) |
@@ -41,7 +41,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 
 2. 本レポジトリをcloneします．
     ```sh
-    git clone https://github.com/TeamSOBITS/speech_recognition_nemo.git
+    git clone -b humble-devel https://github.com/TeamSOBITS/speech_recognition_nemo.git
     ```
 3. レポジトリの中へ移動します．
     ```sh
