@@ -25,13 +25,13 @@ class NemoServer(Node):
         self.initialized_successfully = False # 初期化成功フラグ
 
         # --- ROSパラメータ宣言と取得 ---
-        self.declare_parameter('model', 'nvidia/parakeet-tdt-0.6b-v2') # NeMoモデル名
+        self.declare_parameter('model_name', 'nvidia/parakeet-tdt-0.6b-v2') # NeMoモデル名
         self.declare_parameter('sample_rate', 48000) # サンプリングレート
         self.declare_parameter('chunk_size', 1024) # オーディオチャンクサイズ
         self.declare_parameter('channels', 1) # チャンネル数
         
         # パラメータ値をインスタンス変数に格納
-        self.nemo_model_name = self.get_parameter('model').get_parameter_value().string_value
+        self.nemo_model_name = self.get_parameter('model_name').get_parameter_value().string_value
         self.sample_rate = self.get_parameter('sample_rate').get_parameter_value().integer_value
         self.channels = self.get_parameter('channels').get_parameter_value().integer_value
         self.chunk_size = self.get_parameter('chunk_size').get_parameter_value().integer_value
@@ -119,7 +119,7 @@ class NemoServer(Node):
             self.get_logger().info(f'音声をファイルに保存: {wav_path}')
 
             # --- 文字起こし ---
-            self.get_logger().info('文字起こしを開始')
+            self.get_logger().info('文字起こし開始')
             transcription_start_time = time.time()
             result = self.model.transcribe([wav_path]) # NeMoで文字起こし
             transcribed_text = result[0].text if result else "" # 結果取得
@@ -128,10 +128,10 @@ class NemoServer(Node):
                 self.get_logger().warn("文字起こし結果が空。")
                 response.result_text = "音声が認識されませんでした。"
             else:
-                self.get_logger().info(f"文字起こしテキスト: {transcribed_text}")
+                self.get_logger().info(f"結果: {transcribed_text}")
                 response.result_text = transcribed_text
 
-            self.get_logger().info(f"文字起こし完了 (時間: {time.time() - transcription_start_time:.2f}秒)。")
+            self.get_logger().info(f"文字起こし完了 (処理時間: {time.time() - transcription_start_time:.2f}秒)。")
 
             goal_handle.succeed() # ゴール成功
             return response
