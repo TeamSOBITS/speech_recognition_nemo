@@ -106,6 +106,9 @@ ros2 run speech_recognition_nemo model_download
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
+## 録音された音声について
+録音された音声は**sound_file**ディレクトリに保存されます．
+
 ## マイルストーン
 現時点のバッグや新規機能の依頼を確認するためにIssueページ をご覧ください．
 - Feedbackの実装
