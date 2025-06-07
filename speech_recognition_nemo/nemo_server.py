@@ -17,9 +17,12 @@ import threading # 非同期処理
 class NemoServer(Node):
     # 音声ファイルのパス設定
     SOUND_FILES_PATH = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
-    # 録音済みWAVファイルの出力ディレクトリ
-    AUDIO_OUTPUT_DIR = os.path.join(get_package_share_directory('speech_recognition_nemo'), 'sound_file')
-    
+
+    # get_package_share_directoryを基準に、ソースディレクトリ内のパスを構築
+    _share_dir = get_package_share_directory('speech_recognition_nemo')
+    # shareディレクトリからワークスペースのルートに移動し、src/<pkg>/sound_file を指すようにパスを構築
+    AUDIO_OUTPUT_DIR = os.path.abspath(os.path.join(_share_dir, '../../../../src/speech_recognition_nemo/sound_file'))
+
     def __init__(self):
         super().__init__('nemo_server')
         self.initialized_successfully = False # 初期化成功フラグ
