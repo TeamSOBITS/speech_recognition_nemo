@@ -25,21 +25,14 @@ echo "System dependencies installed."
 echo "--- Installing Python packages via pip3 ---"
 
 # Install pip packages one by one
-pip3 install -q "nemo_toolkit[asr]"
-pip3 install -q sounddevice
-pip3 install -q playsound
-pip3 install -q pyaudio
-pip3 install -q soundfile
-pip3 install -q pygame
+pip3 install nemo_toolkit[asr]
+echo "Finish to install NeMo"
+
+pip3 install playsound
+pip3 install pyaudio
+pip3 install pygame
 
 echo "Python packages installed."
-
-# --- Download NeMo Models ---
-echo "--- Downloading NeMo ASR models ---"
-# Change to the script's directory
-cd "$SCRIPT_DIR" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
-python3 model_download.py
-echo "NeMo ASR models downloaded."
 
 # --- Clone ROS Packages ---
 echo "--- Cloning ROS packages ---"
@@ -57,5 +50,14 @@ fi
 
 # Return to the original script directory
 cd "$SCRIPT_DIR" || { echo "Error: Could not return to $SCRIPT_DIR"; exit 1; }
+pip3 uninstall setuptools -y
+pip3 install setuptools==65.5.1
+
+# --- Download NeMo Models ---
+echo "--- Downloading NeMo ASR models ---"
+# Change to the script's directory
+cd "$SCRIPT_DIR/speech_recognition_nemo" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
+python3 model_download.py
+echo "NeMo ASR models downloaded."
 
 echo "╚══╣ Install: speech_recognition_nemo (FINISHED) ╠══╝"
