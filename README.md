@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[JA](README.md) | [EN](README.en.md)
+[JP](README.md) | [EN](README.en.md)
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
