@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[JP](README.md) | [EN](README.en.md)
+[JA](README.md) | [EN](README.en.md)
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -26,8 +26,6 @@
     </li>
     <li><a href="#launch-and-usage">Launch and Usage</a></li>
     <li><a href="#supported-models-and-languages">Supported Models and Languages</a></li>
-    <li><a href="#parameters">Parameters</a></li>
-    <li><a href="#about-recorded-audio">About Recorded Audio</a></li>
     <li><a href="#milestones">Milestones</a></li>
     <!-- <li><a href="#contributing">Contributing</a></li> -->
     <!-- <li><a href="#license">License</a></li> -->
@@ -101,6 +99,8 @@ First, ensure you have the following environment set up before proceeding to the
    ```
 2. Start the Action Client and send the text you want to speak.
 
+    Recorded audio is saved in the **sound_file** directory.
+
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Supported Models and Languages
@@ -120,22 +120,6 @@ ros2 run speech_recognition_nemo model_download
 ```
 
 2. Similarly, replace the **model_name** in [nemo_server.launch.py](launch/nemo_server.launch.py ) with the desired model name.
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## Parameters
-The following parameters can be configured in [nemo_server.launch.py](launch/nemo_server.launch.py ).
-
-| Parameter | Description | Default Value |
-| ----- | ----- | ----- |
-| sample_rate |Number of audio data conversions per second. Higher values improve sound quality and widen the detectable frequency range. Higher values increase data volume and load, while lower values may degrade sound quality.| 48000 |
-| chunk_size | Size of the audio data block processed at once. Determines the balance between real-time performance and processing load. Larger values may delay response, while smaller values may increase CPU load.| 1024 |
-| channels | Indicates whether the audio is mono (1) or stereo (2). Mono (1) is generally recommended for speech recognition. Setting to 2 increases data volume, and recognition performance may decrease if the model does not support it.| 1 |
-
-<p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-## About Recorded Audio
-Recorded audio is saved in the **sound_file** directory.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

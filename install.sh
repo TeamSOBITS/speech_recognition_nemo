@@ -15,10 +15,6 @@ sudo apt update -y
 
 # Install apt packages one by one, automatically answering 'yes' to prompts
 yes | sudo apt install -y ros-humble-vision-msgs
-yes | sudo apt install -y libportaudio2
-yes | sudo apt install -y libportaudiocpp0
-yes | sudo apt install -y portaudio19-dev
-
 echo "System dependencies installed."
 
 # --- Python Package Installation ---
@@ -27,12 +23,6 @@ echo "--- Installing Python packages via pip3 ---"
 # Install pip packages one by one
 pip3 install nemo_toolkit[asr]
 echo "Finish to install NeMo"
-
-pip3 install playsound
-pip3 install pyaudio
-pip3 install pygame
-
-echo "Python packages installed."
 
 # --- Clone ROS Packages ---
 echo "--- Cloning ROS packages ---"

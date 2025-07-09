@@ -13,21 +13,6 @@ def generate_launch_description():
             # 英語モデル  : nvidia/parakeet-tdt-0.6b-v2
             # 日本語モデル: nvidia/parakeet-tdt_ctc-0.6b-ja
         ),
-        DeclareLaunchArgument(
-            'sample_rate',
-            default_value='48000',
-            description='Audio sample rate'
-        ),
-        DeclareLaunchArgument(
-            'chunk_size',
-            default_value='1024',
-            description='Audio chunk size'
-        ),
-        DeclareLaunchArgument(
-            'channels',
-            default_value='1',
-            description='Number of audio channels'
-        ),
 
         # Launch the NemoServer Node
         Node(
@@ -36,9 +21,6 @@ def generate_launch_description():
             name='nemo_asr_action_server',
             parameters=[
                 {'model_name': LaunchConfiguration('model_name')},
-                {'sample_rate': LaunchConfiguration('sample_rate')},
-                {'chunk_size': LaunchConfiguration('chunk_size')},
-                {'channels': LaunchConfiguration('channels')},
             ],
             output='screen'
         ),

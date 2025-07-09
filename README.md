@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-[JP](README.md) | [EN](README.en.md)
+[JA](README.md) | [EN](README.en.md)
 
 [![Contributors][contributors-shield]][contributors-url]
 [![Forks][forks-shield]][forks-url]
@@ -18,7 +18,7 @@
       <a href="#概要">概要</a>
     </li>
     <li>
-      <a href="#環境構築">環境構築</a>
+      <a href="#セットアップ">セットアップ</a>
       <ul>
         <li><a href="#環境条件">環境条件</a></li>
         <li><a href="#インストール方法">インストール方法</a></li>
@@ -26,11 +26,8 @@
     </li>
     <li><a href="#実行操作方法">実行・操作方法</a></li>
     <li><a href="#対応モデルと言語">対応モデルと言語</a></li>
-    <li><a href="#パラメータ">パラメータ</a></li>
     <li><a href="#録音された音声について">録音された音声について</a></li>
     <li><a href="#マイルストーン">マイルストーン</a></li>
-    <!-- <li><a href="#contributing">Contributing</a></li> -->
-    <!-- <li><a href="#license">License</a></li> -->
     <li><a href="#参考文献">参考文献</a></li>
   </ol>
 </details>
@@ -45,8 +42,8 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
-<!-- 環境構築 -->
-## 環境構築
+<!-- セットアップ -->
+## セットアップ
 ここで，本レポジトリのセットアップ方法について説明します．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
@@ -100,6 +97,8 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
    ```
 2. アクションクライアントを起動し，発話させたい文字を送信します．
 
+    録音された音声は**sound_file**ディレクトリに保存されます．
+
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
 ## 対応モデルと言語
@@ -120,22 +119,6 @@ ros2 run speech_recognition_nemo model_download
 
 2. [nemo_server.launch.py](launch/nemo_server.launch.py )の**model_name**も同様に，使用するモデル名に書き換えてください．
 
-
-<p align="right">(<a href="#readme-top">上に戻る</a>)</p>
-
-## パラメータ
-[nemo_server.launch.py](launch/nemo_server.launch.py )で以下のパラメータを設定できます．
-
-| パラメータ | 説明 | デフォルト値 |
-| ----- | ----- | ----- |
-| sample_rate |1秒あたりの音声データ変換回数．高いほど音質が向上し，拾える周波数範囲が広がる．高くするとデータ量と負荷が増え，低くすると音質が劣化する可能性がある．| 48000 |
-| chunk_size | 一度に処理する音声データの塊のサイズ．リアルタイム性と処理負荷のバランスを決定する．大きくすると応答が遅くなり，小さくするとCPU負荷が高まる可能性がある．| 1024 |
-| channels | 音声がモノラル（1）かステレオ（2）かを示す． 音声認識には通常モノラル（1）が推奨される．2にするとデータ量が増え，モデルが対応していない場合は認識性能が低下することがある．| 1 |
-
-<p align="right">(<a href="#readme-top">上に戻る</a>)</p>
-
-## 録音された音声について
-録音された音声は**sound_file**ディレクトリに保存されます．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
