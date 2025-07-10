@@ -90,7 +90,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 
 <!-- 実行・操作方法 -->
 ## 実行・操作方法
-1. Ubuntuの設定のサウンドの入力デバイスを，使用するマイクに設定する
+1. Ubuntuの設定で，サウンドの入力デバイスを使用するマイクに設定する
 
 2. アクションサーバーを起動します．**NeMo Server is READY and waiting for requests**と表示されるまでgoalを送らずに待機してください．
 
