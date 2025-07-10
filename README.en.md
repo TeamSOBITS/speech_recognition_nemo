@@ -91,13 +91,14 @@ First, ensure you have the following environment set up before proceeding to the
 
 <!-- Launch and Usage -->
 ## Launch and Usage
+1. In Ubuntu settings, set the input device for sound to the microphone you intend to use.
 
-1. Start the Action Server. Please wait for **NeMo Server is READY and waiting for requests** to appear before sending any goals.
+2. Start the Action Server. Please wait for **NeMo Server is READY and waiting for requests** to appear before sending any goals.
 
    ```sh
    ros2 launch speech_recognition_nemo nemo_server.launch.py 
    ```
-2. Start the Action Client and send the text you want to speak.
+3. Start the Action Client and send the text you want to speak.
 
     Recorded audio is saved in the **sound_file** directory.
 

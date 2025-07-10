@@ -90,12 +90,14 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 
 <!-- 実行・操作方法 -->
 ## 実行・操作方法
-1. アクションサーバーを起動します．**NeMo Server is READY and waiting for requests**と表示されるまでgoalを送らずに待機してください．
+1. Ubuntuの設定のサウンドの入力デバイスを，使用するマイクに設定する
+
+2. アクションサーバーを起動します．**NeMo Server is READY and waiting for requests**と表示されるまでgoalを送らずに待機してください．
 
    ```sh
    ros2 launch speech_recognition_nemo nemo_server.launch.py 
    ```
-2. アクションクライアントを起動し，発話させたい文字を送信します．
+3. アクションクライアントを起動し，発話させたい文字を送信します．
 
     録音された音声は**sound_file**ディレクトリに保存されます．
 

@@ -13,6 +13,8 @@ export DEBIAN_FRONTEND=noninteractive # Skip interactive apt prompts
 
 sudo apt update -y
 
+sudo apt install pulseaudio-utils -y
+
 # Install apt packages one by one, automatically answering 'yes' to prompts
 yes | sudo apt install -y ros-humble-vision-msgs
 echo "System dependencies installed."

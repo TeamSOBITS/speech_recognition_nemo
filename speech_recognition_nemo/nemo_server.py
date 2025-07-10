@@ -32,15 +32,18 @@ class NemoServer(Node):
         ENDC = '\033[0m'
 
         self.default_audio_source, self.default_sample_rate, self.default_channels = self.get_pulseaudio_source_info()
-
         if self.default_audio_source:
-            self.get_logger().info(f"Current microphone (PulseAudio default source): {self.default_audio_source}")
-            if self.default_sample_rate is not None and self.default_channels is not None:
-                self.get_logger().info(f"  Sample Rate: {self.default_sample_rate} Hz, Channels: {self.default_channels}")
-            else:
-                self.get_logger().warn(f"  Could not retrieve sample rate or channels for PulseAudio source '{self.default_audio_source}'.")
+            if self.default_sample_rate is None or self.default_channels is None:
+                self.get_logger().warn(f"Could not retrieve sample rate or channels for PulseAudio source '{self.default_audio_source}'. "
+                                       f"Using default values: Sample Rate={48000} Hz, Channels={1}.")
+                self.default_sample_rate = 48000  
+                self.default_channels = 1
+            self.get_logger().info(f"Microphone name: {self.default_audio_source}")
+            self.get_logger().info(f"Sample Rate: {self.default_sample_rate} Hz, Channels: {self.default_channels}")
         else:
-            self.get_logger().warn("Could not determine PulseAudio default input source. Speech recognition may not function correctly.")
+            self.get_logger().fatal("Could not determine PulseAudio default input source. Terminating Node.")
+            self.model = None 
+            return
 
         self.declare_parameter('model_name', 'nvidia/parakeet-tdt-0.6b-v2')
         self.nemo_model_name = self.get_parameter('model_name').get_parameter_value().string_value
@@ -61,6 +64,7 @@ class NemoServer(Node):
             cancel_callback=self._cancel_callback,
         )
         self.get_logger().info(f"Microphone: {YELLOW}{self.default_audio_source}{ENDC}")
+        self.get_logger().info(f"Sample Rate: {self.default_sample_rate} Hz, Channels: {self.default_channels}")
         self.get_logger().info(f"{YELLOW}NeMo Server is READY and waiting for requests.{ENDC}")
 
     def _goal_callback(self, goal_request):
