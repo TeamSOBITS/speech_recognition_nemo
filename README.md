@@ -99,6 +99,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
    ```
 3. アクションクライアントを起動し，発話させたい文字を送信します．
 
+    フィードバックの間隔は1.5秒以上に指定することを推奨します．\
     録音された音声は**sound_file**ディレクトリに保存されます．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
@@ -125,7 +126,6 @@ ros2 run speech_recognition_nemo model_download
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
 ## マイルストーン
-- [ ] Feedbackの実装
 
 現時点のバッグや新規機能の依頼を確認するためにIssueページ をご覧ください．
 
