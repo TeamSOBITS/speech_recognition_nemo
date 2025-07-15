@@ -239,9 +239,11 @@ class NemoServer(Node):
         try:
             audio_data = np.frombuffer(b''.join(all_audio), dtype=np.int16).astype(np.float32) / 32768.0
             resampled = self.resample_audio(audio_data, self.sample_rate, 16000, self.channels)
+            start_infer = time.time()
             with torch.no_grad():
                 result = self.model.transcribe([resampled])
             response.result_text = result[0].text if result and result[0].text else "No speech recognized."
+            self.get_logger().info(f"Inference time (feedback): {time.time() - start_infer:.3f} sec")
         except Exception as e:
             response.result_text = f"Recognition error: {e}"
 
