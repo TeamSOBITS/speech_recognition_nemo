@@ -100,6 +100,8 @@ First, ensure you have the following environment set up before proceeding to the
    ```
 3. Start the Action Client and send the text you want to speak.
 
+    It is recommended to set the feedback interval to at least 1.5 seconds.
+
     Recorded audio is saved in the **sound_file** directory.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -125,7 +127,6 @@ ros2 run speech_recognition_nemo model_download
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## Milestones
-- [ ] Implement Feedback
 
 Please refer to the [Issue page](issues-url) for current bugs and new feature requests.
 
