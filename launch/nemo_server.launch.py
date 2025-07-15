@@ -8,7 +8,7 @@ def generate_launch_description():
         # Declare arguments for NeMo ASR Node parameters
         DeclareLaunchArgument(
             'model_name',
-            default_value='nvidia/parakeet-tdt-0.6b-v2', # Default to Japanese model
+            default_value='nvidia/parakeet-tdt-0.6b-v2', # Default to English model
             description='NeMo ASR model name'
             # 英語モデル  : nvidia/parakeet-tdt-0.6b-v2
             # 日本語モデル: nvidia/parakeet-tdt_ctc-0.6b-ja
