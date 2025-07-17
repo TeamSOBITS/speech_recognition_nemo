@@ -215,13 +215,14 @@ class NemoServer(Node):
 
                 try:
                     resampled = self.resample_audio(audio_concat, self.sample_rate, 16000, self.channels)
+                    start_infer = time.time()
                     with torch.no_grad():
                         result = self.model.transcribe([resampled])
                     if result and result[0].text:
                         fb = SpeechRecognition.Feedback()
                         fb.addition_text = result[0].text
                         goal_handle.publish_feedback(fb)
-                        self.get_logger().info(f"Feedback: {result[0].text}")
+                        self.get_logger().info(f"Feedback: {result[0].text}, Score: {result[0].score:.2f}, Inference time: {time.time() - start_infer:.3f} sec")
                 except Exception as e:
                     self.get_logger().warn(f"Recognition failed: {e}")
 
@@ -243,7 +244,7 @@ class NemoServer(Node):
             with torch.no_grad():
                 result = self.model.transcribe([resampled])
             response.result_text = result[0].text if result and result[0].text else "No speech recognized."
-            self.get_logger().info(f"Inference time (feedback): {time.time() - start_infer:.3f} sec")
+            self.get_logger().info(f"Result: {response.result_text}, Score: {result[0].score:.2f}, Inference time: {time.time() - start_infer:.3f} sec")
         except Exception as e:
             response.result_text = f"Recognition error: {e}"
 
