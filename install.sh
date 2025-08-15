@@ -30,7 +30,7 @@ echo "Finish to install NeMo"
 echo "--- Cloning ROS packages ---"
 cd .. # Go up one directory to clone sibling repositories
 
-SOBITS_MSGS_REPO="sobits_msgs"
+SOBITS_MSGS_REPO="sobits_interfaces"
 # Check if the repository already exists
 if [ ! -d "$SOBITS_MSGS_REPO" ]; then
     echo "Cloning $SOBITS_MSGS_REPO repository..."
