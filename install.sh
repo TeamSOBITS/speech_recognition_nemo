@@ -34,7 +34,7 @@ SOBITS_MSGS_REPO="sobits_msgs"
 # Check if the repository already exists
 if [ ! -d "$SOBITS_MSGS_REPO" ]; then
     echo "Cloning $SOBITS_MSGS_REPO repository..."
-    git clone -b humble-devel https://github.com/TeamSOBITS/sobits_msgs.git
+    git clone -b humble-devel https://github.com/TeamSOBITS/sobits_interfaces.git
     echo "$SOBITS_MSGS_REPO cloned successfully."
 else
     echo "$SOBITS_MSGS_REPO repository already exists. Skipping clone."
