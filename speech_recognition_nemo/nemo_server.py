@@ -2,6 +2,7 @@ import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.executors import MultiThreadedExecutor
 
 from sobits_interfaces.action import SpeechRecognition
 from ament_index_python.packages import get_package_share_directory
@@ -197,7 +198,7 @@ class NemoServer(Node):
             if now - start >= timeout_sec:
                 break
             if goal_handle.is_cancel_requested:
-                self.get_logger().warn("Goal canceled")
+                self.get_logger().info("Goal canceled")
                 goal_handle.canceled()
                 return response
             try:
@@ -226,7 +227,6 @@ class NemoServer(Node):
                 except Exception as e:
                     self.get_logger().warn(f"Recognition failed: {e}")
 
-            time.sleep(0.01)
         try:
             with wave.open(self.wav_path, 'wb') as wf:
                 wf.setnchannels(self.channels)
@@ -258,8 +258,15 @@ class NemoServer(Node):
 def main(args=None):
     rclpy.init(args=args)
     node = NemoServer()
-    rclpy.spin(node)
-    rclpy.shutdown()
+
+    executor = MultiThreadedExecutor()
+    executor.add_node(node)
+    try:
+        executor.spin()
+    finally:
+        executor.shutdown()
+        node.destroy_node()
+        rclpy.shutdown()
 
 
 if __name__ == '__main__':
