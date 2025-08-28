@@ -3,8 +3,8 @@ from rclpy.node import Node
 from rclpy.action import ActionServer, GoalResponse, CancelResponse
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.executors import MultiThreadedExecutor
-
 from sobits_interfaces.action import SpeechRecognition
+
 from ament_index_python.packages import get_package_share_directory
 
 import nemo.collections.asr as nemo_asr
@@ -20,6 +20,8 @@ import re
 import glob
 from scipy.signal import resample_poly 
 
+from .vad import VadProcessor
+
 class NemoServer(Node):
     def __init__(self):
         super().__init__('nemo_server')
@@ -29,6 +31,9 @@ class NemoServer(Node):
 
         self.declare_parameter('model_name', 'nvidia/parakeet-tdt-0.6b-v2')
         self.model_name = self.get_parameter('model_name').get_parameter_value().string_value
+        
+        # Parameters for VAD logic (Declared once here)
+        self.declare_parameter('min_wipe_duration', 0.1)
 
         self.SOUND_FILES_PATH = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
         share_dir = get_package_share_directory('speech_recognition_nemo')
@@ -37,17 +42,22 @@ class NemoServer(Node):
         os.makedirs(self.sound_file_directory, exist_ok=True)
         self.wav_path = os.path.join(self.sound_file_directory, 'output.wav')
         self.get_logger().info(f"Output path: {self.wav_path}")
+        self.file_counter = 0 # Counter for sequential file naming
 
-        self.source_name, self.sample_rate, self.channels = self.get_pulseaudio_source_info()
-        if self.source_name is None:
-            self.get_logger().fatal("Failed to get default microphone")
-            return
+        # Get PulseAudio info
+        source_name, sample_rate, channels = self.get_pulseaudio_source_info()
 
-        if self.sample_rate is None or self.channels is None:
-            self.sample_rate = 16000
-            self.channels = 1
-            self.get_logger().warn("Failed to get sample rate or channel info. Using default: 16kHz / Mono")
-
+        if source_name is None:
+            self.get_logger().warn("Failed to get default microphone. Using fallback settings.")
+            self.source_name = "default"  # Default source that works on many systems
+            self.sample_rate = 44100      # Common microphone sample rate
+            self.channels = 2             # Common stereo channel count
+        else:
+            self.source_name = source_name
+            self.sample_rate = sample_rate if sample_rate is not None else 44100
+            self.channels = channels if channels is not None else 2
+        
+        # Log the final settings
         self.get_logger().info(f"Microphone: {self.source_name}, Sample rate: {self.sample_rate} Hz, Channels: {self.channels}")
 
         try:
@@ -58,6 +68,9 @@ class NemoServer(Node):
         except Exception as e:
             self.get_logger().fatal(f"Model loading failed: {e}")
             return
+
+        self.vad_processor = VadProcessor(self)
+        self.hop_size, self.vad_chunk_size_bytes = self.vad_processor.get_hop_size()
 
         self.action_server = ActionServer(
             self,
@@ -129,11 +142,11 @@ class NemoServer(Node):
             subprocess.run(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'quiet', path],
                            check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except FileNotFoundError:
-            self.get_logger().warn(f"⚠️ ffplay not found: {filename}")
+            self.get_logger().warn(f"ffplay not found: {filename}")
         except subprocess.CalledProcessError as e:
-            self.get_logger().warn(f"⚠️ Failed to play sound: {e}")
+            self.get_logger().warn(f"Failed to play sound: {e}")
         except Exception as e:
-            self.get_logger().warn(f"⚠️ Error during sound playback: {e}")
+            self.get_logger().warn(f"Error during sound playback: {e}")
 
     def resample_audio(self, audio_np: np.ndarray, orig_sr: int, target_sr: int, channels: int):
         if channels > 1:
@@ -151,27 +164,24 @@ class NemoServer(Node):
 
     async def execute_callback(self, goal_handle):
         timeout_sec = goal_handle.request.timeout_sec
-        feedback_rate = max(goal_handle.request.feedback_rate, 0.1)
         silent = goal_handle.request.silent_mode
 
-        self.get_logger().info(f"Recording started for {timeout_sec} seconds (feedback interval: {feedback_rate}s)")
+        self.get_logger().info(f"Recording started for {timeout_sec} seconds")
 
         if not silent:
             start_sound_thread = threading.Thread(target=self.play_sound, args=('start_sound.mp3',), daemon=True)
             start_sound_thread.start()
 
+        self.file_counter = 0 # Counter for sequential file naming
         self._cleanup_files()
 
         audio_q = queue.Queue()
         raw_audio_chunks = []
         feedback_buffer_chunks = []
-        feedback_count = 0
         
-        bytes_per_sample = 2  # s16le
-        chunk_duration = 0.5
-        chunk_size_bytes = int(self.sample_rate * self.channels * bytes_per_sample * chunk_duration)
-        feedback_buffer_limit = int(self.sample_rate * self.channels * bytes_per_sample * feedback_rate)
-
+        # Set chunk size based on VAD hop size
+        chunk_size_bytes = self.vad_chunk_size_bytes
+        
         def capture():
             try:
                 proc = subprocess.Popen([
@@ -202,6 +212,16 @@ class NemoServer(Node):
         start = time.time()
         response = SpeechRecognition.Result()
 
+        is_speaking = False
+        is_potential_speaking = False
+        potential_speech_start_time = None
+        
+        # Manage audio buffer for VAD processing
+        vad_audio_buffer = np.array([], dtype=np.int16)
+        
+        # Parameters for VAD logic
+        min_wipe_duration = self.get_parameter('min_wipe_duration').get_parameter_value().double_value
+        
         while rclpy.ok():
             now = time.time()
             if now - start >= timeout_sec:
@@ -220,57 +240,79 @@ class NemoServer(Node):
                 continue
             if chunk is None:
                 break
-
+            
+            # Keep raw audio for final WAV file
             raw_audio_chunks.append(chunk)
-            feedback_buffer_chunks.append(chunk)
+            
+            # Resample audio for VAD processing
+            current_audio_np = np.frombuffer(chunk, dtype=np.int16)
+            resampled_data = self.resample_audio(current_audio_np, self.sample_rate, 16000, self.channels)
+            vad_audio_buffer = np.concatenate([vad_audio_buffer, resampled_data.astype(np.int16)])
+            
+            # Process VAD for each hop size chunk
+            while len(vad_audio_buffer) >= self.hop_size:
+                vad_chunk = vad_audio_buffer[:self.hop_size]
+                vad_audio_buffer = vad_audio_buffer[self.hop_size:]
 
-            # フィードバック処理
-            current_buffer_size = sum(len(c) for c in feedback_buffer_chunks)
-            if current_buffer_size >= feedback_buffer_limit:
-                audio_to_transcribe_raw = b"".join(feedback_buffer_chunks)
+                is_voice_now = self.vad_processor.vad_processor(vad_chunk.tobytes())
+
+                if is_voice_now:
+                    # 音声が検出された場合
+                    if not is_potential_speaking:
+                        is_potential_speaking = True
+                        potential_speech_start_time = now
+                    
+                    if not is_speaking and (now - potential_speech_start_time) > min_wipe_duration:
+                        is_speaking = True
+                        self.get_logger().info("Speech detected, starting new segment.")
+                        feedback_buffer_chunks = raw_audio_chunks[:]
+                    
+                    if is_speaking:
+                        feedback_buffer_chunks.append(chunk)
                 
-                # feedback_buffer_limitを超えた分を次のバッファの先頭に移動
-                remainder_size = current_buffer_size - feedback_buffer_limit
-                if remainder_size > 0:
-                    remainder_chunk = audio_to_transcribe_raw[-remainder_size:]
-                    audio_to_transcribe_raw = audio_to_transcribe_raw[:-remainder_size]
-                    feedback_buffer_chunks = [remainder_chunk]
                 else:
-                    feedback_buffer_chunks = []
-
-                # フィードバック用音声ファイルを保存
-                feedback_count += 1
-                feedback_filename = f"feedback_{feedback_count:03d}.wav"
-                feedback_filepath = os.path.join(self.sound_file_directory, feedback_filename)
-                self._save_buffer_to_wav([audio_to_transcribe_raw], feedback_filepath, self.sample_rate, self.channels)
-
-                audio_to_transcribe_np = np.frombuffer(audio_to_transcribe_raw, dtype=np.int16).astype(np.float32) / 32768.0
-
-                try:
-                    resampled = self.resample_audio(audio_to_transcribe_np, self.sample_rate, 16000, self.channels)
-                    with torch.no_grad():
-                        result = self.model.transcribe([resampled])
-
-                    if result and result[0].text.strip():
-                        fb = SpeechRecognition.Feedback()
-                        fb.addition_text = result[0].text
-                        goal_handle.publish_feedback(fb)
-                        self.get_logger().info(f"Feedback: {result[0].text}, Score: {result[0].score:.2f}")
-
-                except Exception as e:
-                    self.get_logger().warn(f"Recognition failed during feedback: {e}")
-
-        # 録音プロセスの終了
+                    # 音声が検出されなかった場合
+                    is_potential_speaking = False
+                    
+                    if is_speaking:
+                        # 発話終了と判断し、フィードバック処理を実行
+                        self.get_logger().info("Speech segment ended. Processing feedback.")
+                        
+                        # バッファに溜まったデータを結合し、認識にかける
+                        if feedback_buffer_chunks:
+                            # Save the feedback audio segment
+                            self.file_counter += 1
+                            feedback_wav_path = os.path.join(self.sound_file_directory, f'feedback_{self.file_counter}.wav')
+                            if self._save_buffer_to_wav(feedback_buffer_chunks, feedback_wav_path, self.sample_rate, self.channels):
+                                self.get_logger().info(f"Feedback audio saved to: {feedback_wav_path}")
+                            
+                            feedback_audio_data = np.frombuffer(b''.join(feedback_buffer_chunks), dtype=np.int16).astype(np.float32) / 32768.0
+                            if feedback_audio_data.size > 0:
+                                resampled = self.resample_audio(feedback_audio_data, self.sample_rate, 16000, self.channels)
+                                with torch.no_grad():
+                                    feedback_result = self.model.transcribe([resampled])
+                                feedback_text = feedback_result[0].text if feedback_result and feedback_result[0].text.strip() else "No speech recognized."
+                                self.get_logger().info(f"Feedback Result: {feedback_text}")
+                                
+                                # Use action feedback instead of a separate publisher
+                                feedback = SpeechRecognition.Feedback()
+                                # Correcting the attribute name to 'addition_text' based on your provided action definition
+                                feedback.addition_text = feedback_text
+                                goal_handle.publish_feedback(feedback)
+                        
+                        # VAD状態とバッファをリセット
+                        is_speaking = False
+                        feedback_buffer_chunks = []
+        # End of recording loop
         if self.parec_proc:
             self.parec_proc.terminate()
         thread.join(timeout=2.0)
         
-        # 最終音声ファイルの保存
+        # 最終的な音声ファイルと認識処理（タイムアウト時）
         if raw_audio_chunks:
             self._save_buffer_to_wav(raw_audio_chunks, self.wav_path, self.sample_rate, self.channels)
             self.get_logger().info(f"Final audio saved to: {self.wav_path}")
 
-        # 最終的な音声認識
         try:
             audio_data = np.frombuffer(b''.join(raw_audio_chunks), dtype=np.int16).astype(np.float32) / 32768.0
             if audio_data.size == 0:

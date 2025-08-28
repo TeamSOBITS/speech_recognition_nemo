@@ -35,22 +35,19 @@ class VadProcessor(Node):
         self.vad_chunk_size_bytes = 2 * 1 * self.hop_size         
         return self.hop_size, self.vad_chunk_size_bytes
     
-    def vad_processor(self, resampled_data, feedback_rate):
+    def vad_processor(self, resampled_data):
         if self.vad_model:
             audio_np = np.frombuffer(resampled_data, dtype=np.int16)
-            if audio_np.shape[0] < self.hop_size:
-                return False
-            audio_np = audio_np[:self.hop_size]
             prob, _ = self.vad_model.process(audio_np)
             is_voice = prob > self.threshold
             self.get_logger().info(f"{self.vad_name} Status: Speaking {is_voice} (Probability: {prob:.2f})")
             return is_voice
         else:
             current_time = time.time()
-            if current_time - self.last_false_time >= feedback_rate:
+            if current_time - self.last_false_time >= 0.1: 
                 self.last_false_time = current_time
-                self.get_logger().info(f"Not recognizing ({feedback_rate}s interval)")
+                self.get_logger().info(f"Not recognizing (time-based)")
                 return False
             else:
-                self.get_logger().info("Recognizing")
+                self.get_logger().info("Recognizing (time-based)")
                 return True
