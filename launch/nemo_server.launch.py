@@ -7,7 +7,7 @@ def generate_launch_description():
     return LaunchDescription([
         DeclareLaunchArgument(
             'model_name',
-            default_value='nvidia/parakeet-tdt-0.6b-v2',
+            default_value='nvidia/parakeet-tdt-0.6b-v2', #English: nvidia/parakeet-tdt-0.6b-v2, Japanese:  nvidia/parakeet-tdt_ctc-0.6b-ja
             description='NeMo ASR model name'
         ),
         DeclareLaunchArgument(

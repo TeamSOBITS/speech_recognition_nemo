@@ -25,7 +25,7 @@
       </ul>
     </li>
     <li><a href="#実行操作方法">実行・操作方法</a></li>
-    <li><a href="#対応モデルと言語">対応モデルと言語</a></li>
+    <li><a href="#パラメータ">パラメータ</a></li>
     <li><a href="#録音された音声について">録音された音声について</a></li>
     <li><a href="#マイルストーン">マイルストーン</a></li>
     <li><a href="#参考文献">参考文献</a></li>
@@ -35,7 +35,7 @@
 <!-- レポジトリの概要 -->
 ## 概要
 
-speech_recognition_nemoは，NeMo Frameworkの自動音声認識（ASR）機能をROS2のアクション通信に対応させたものです．高速で高精度な音声認識を提供します．
+Speech Recognition NeMoは，NeMo Frameworkの自動音声認識（ASR）機能をROS2のアクション通信に対応させたものです．高速で高精度な音声認識を提供します．
 
 
 NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモーダルモデル（MM），自動音声認識（ASR），テキスト読み上げ（TTS），そしてコンピュータービジョン（CV）の分野に取り組む研究者やPyTorch開発者向けに構築された，スケーラブルでクラウドネイティブな生成AIフレームワークです．
@@ -99,41 +99,60 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
    ```
 3. アクションクライアントを起動し，発話させたい文字を送信します．
 
-    フィードバックの間隔は1.5秒以上に指定することを推奨します．\
     録音された音声は**sound_file**ディレクトリに保存されます．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
-## 対応モデルと言語
-speech_recognition_nemoは以下の言語に対応しています．
+## パラメータ
+[nemo_server.launch.py](launch/nemo_server.launch.py)では以下のパラメータを指定できます．
 
-| 対応言語  | モデル名 |
-| ----- | ----- |
-| 英語 | [nvidia/parakeet-tdt-0.6b-v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) (デフォルト)|
-| 日本語 | [nvidia/parakeet-tdt_ctc-0.6b-ja](https://huggingface.co/nvidia/parakeet-tdt_ctc-0.6b-ja) |
-| その他 | [Parakeet](https://huggingface.co/collections/nvidia/parakeet-659711f49d1469e51546e021)や[Canary](https://huggingface.co/collections/nvidia/canary-65c3b83ff19b126a3ca62926)のサイトを参照 |
+| パラメータ | 説明 | デフォルト値 |
+| --- | --- | --- |
+| model_name | 音声認識モデルの名前 *| nvidia/parakeet-tdt-0.6b-v2 |
+| use_feedback | Feedbackを使用するかどうか | True |
 
-使用言語を英語以外に変更する場合や，他のモデルを使用する場合は以下を実行してください．
+
+*以下の言語に対応しています．
+  - 英語: [nvidia/parakeet-tdt-0.6b-v2](https://huggingface.co/nvidia/parakeet-tdt-0.6b-v2) (デフォルト)
+  - 日本語: [nvidia/parakeet-tdt_ctc-0.6b-ja](https://huggingface.co/nvidia/parakeet-tdt_ctc-0.6b-ja)
+  - その他: [Parakeet](https://huggingface.co/collections/nvidia/parakeet-659711f49d1469e51546e021)や[Canary](https://huggingface.co/collections/nvidia/canary-65c3b83ff19b126a3ca62926)のサイトを参照 
+
+  使用言語を英語以外に変更する場合や，他のモデルを使用する場合は以下を実行してください．
 
 1. [model_download.py](speech_recognition_nemo/model_download.py)の**model_name**を使用するモデル名に書き換えて以下を実行し，モデルをダンロードする．
-```sh
-ros2 run speech_recognition_nemo model_download
-```
+    ```sh
+    ros2 run speech_recognition_nemo model_download
+    ```
 
 2. [nemo_server.launch.py](launch/nemo_server.launch.py )の**model_name**も同様に，使用するモデル名に書き換えてください．
 
+\
+以下はFeedbackに関するパラメータです．
+`use_feedback`が`True`のときのみ有効です．
+以下の値を変更しても最終認識結果には影響しません．
+
+| パラメータ | 説明 | デフォルト値 |
+| --- | --- | --- |
+| vad_name | フィードバックの際に使用する音声アクティビティ検出(VAD)の手法．VADの使用によりフィードバックの認識精度が向上する．Noneを選択するとVADを使用せずAction Clientで指定したFeedback Rateの秒数ごとに音声認識を行う． | ten_vad |
+| hop_size | VADモデルが音声データを処理するチャンク（断片）のサイズ．160 or 256を選択可能．値が小さいほど応答性が上がるが，CPU負荷が増える | 256 |
+| threshold | VADモデルが音声を検出するための確率のしきい値．値を高くすると誤検出が減るが，かすれた声や小さな声が無視される可能性がある | 0.5 |
+| min_wipe_duration | ノイズを無視し音声認識するために必要な声の最短の長さ．VADが発話と認識した区間がこの秒数より短い場合，ノイズとして無視され音声認識の処理を行わない． | 0.2 |
+| extra_audio_duration_sec | フィードバックごとに音声の前後に含める追加のオーディオ時間 | 0.2 | 
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
 ## マイルストーン
 
 現時点のバッグや新規機能の依頼を確認するためにIssueページ をご覧ください．
+- 最終認識結果の音声ファイルの保存
+- VAD未使用時のフィードバック動作の改善
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
 ## 参考文献
 * [NeMo overview](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html)
 * [NeMo github](https://github.com/NVIDIA/NeMo)
+* [TEN VAD](https://github.com/TEN-framework/ten-vad)
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
