@@ -17,6 +17,7 @@ import time
 import wave
 import os
 import re
+import glob
 from scipy.signal import resample_poly 
 
 class NemoServer(Node):
@@ -31,10 +32,10 @@ class NemoServer(Node):
 
         self.SOUND_FILES_PATH = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
         share_dir = get_package_share_directory('speech_recognition_nemo')
-        AUDIO_OUTPUT_DIR = os.path.join(os.path.abspath(os.path.join(share_dir, '..', '..', '..', '..')),
-                                        'src', 'speech_recognition_nemo', 'sound_file')
-        os.makedirs(AUDIO_OUTPUT_DIR, exist_ok=True)
-        self.wav_path = os.path.join(AUDIO_OUTPUT_DIR, 'output.wav')
+        self.sound_file_directory = os.path.join(os.path.abspath(os.path.join(share_dir, '..', '..', '..', '..')),
+                                                 'src', 'speech_recognition_nemo', 'sound_file')
+        os.makedirs(self.sound_file_directory, exist_ok=True)
+        self.wav_path = os.path.join(self.sound_file_directory, 'output.wav')
         self.get_logger().info(f"Output path: {self.wav_path}")
 
         self.source_name, self.sample_rate, self.channels = self.get_pulseaudio_source_info()
@@ -67,12 +68,14 @@ class NemoServer(Node):
             goal_callback=self.goal_callback,
             cancel_callback=self.cancel_callback,
         )
-    
+
         YELLOW = '\033[93m'
         ENDC = '\033[0m'
         self.get_logger().info(f"Microphone: {YELLOW}{self.source_name}{ENDC}")
         self.get_logger().info(f"Sample Rate: {self.sample_rate} Hz, Channels: {self.channels}")
         self.get_logger().info(f"{YELLOW}NeMo Server is READY and waiting for requests.{ENDC}")
+
+        self.parec_proc = None
 
     def get_pulseaudio_source_info(self):
         try:
@@ -157,11 +160,17 @@ class NemoServer(Node):
             start_sound_thread = threading.Thread(target=self.play_sound, args=('start_sound.mp3',), daemon=True)
             start_sound_thread.start()
 
+        self._cleanup_files()
+
         audio_q = queue.Queue()
-        buffer_audio = []
-        all_audio = []
+        raw_audio_chunks = []
+        feedback_buffer_chunks = []
+        feedback_count = 0
+        
+        bytes_per_sample = 2  # s16le
         chunk_duration = 0.5
-        chunk_size = int(self.sample_rate * self.channels * 2 * chunk_duration)
+        chunk_size_bytes = int(self.sample_rate * self.channels * bytes_per_sample * chunk_duration)
+        feedback_buffer_limit = int(self.sample_rate * self.channels * bytes_per_sample * feedback_rate)
 
         def capture():
             try:
@@ -172,19 +181,19 @@ class NemoServer(Node):
                     '--rate', str(self.sample_rate),
                     '--file-format=raw',
                 ], stdout=subprocess.PIPE)
-
                 self.parec_proc = proc
-
+                
                 while True:
-                    chunk = proc.stdout.read(chunk_size)
-                    if not chunk or len(chunk) < chunk_size:
+                    if not rclpy.ok() or self.parec_proc.poll() is not None:
                         break
-                    audio_np = np.frombuffer(chunk, dtype=np.int16).astype(np.float32) / 32768.0
-                    audio_q.put(audio_np)
-                    all_audio.append(chunk)
-                audio_q.put(None)
+                    chunk = self.parec_proc.stdout.read(chunk_size_bytes)
+                    if not chunk:
+                        break
+                    audio_q.put(chunk)
+
             except Exception as e:
                 self.get_logger().error(f"Recording error: {e}")
+            finally:
                 audio_q.put(None)
 
         thread = threading.Thread(target=capture, daemon=True)
@@ -196,63 +205,116 @@ class NemoServer(Node):
         while rclpy.ok():
             now = time.time()
             if now - start >= timeout_sec:
+                self.get_logger().info("Timeout reached.")
                 break
             if goal_handle.is_cancel_requested:
                 self.get_logger().info("Goal canceled")
                 goal_handle.canceled()
+                if self.parec_proc:
+                    self.parec_proc.terminate()
                 return response
+            
             try:
-                audio = audio_q.get(timeout=0.1)
+                chunk = audio_q.get(timeout=0.1)
             except queue.Empty:
                 continue
-            if audio is None:
+            if chunk is None:
                 break
 
-            buffer_audio.append(audio)
+            raw_audio_chunks.append(chunk)
+            feedback_buffer_chunks.append(chunk)
 
-            if sum(len(a) for a in buffer_audio) >= int(self.sample_rate * feedback_rate):
-                audio_concat = np.concatenate(buffer_audio)
-                buffer_audio = []
+            # フィードバック処理
+            current_buffer_size = sum(len(c) for c in feedback_buffer_chunks)
+            if current_buffer_size >= feedback_buffer_limit:
+                audio_to_transcribe_raw = b"".join(feedback_buffer_chunks)
+                
+                # feedback_buffer_limitを超えた分を次のバッファの先頭に移動
+                remainder_size = current_buffer_size - feedback_buffer_limit
+                if remainder_size > 0:
+                    remainder_chunk = audio_to_transcribe_raw[-remainder_size:]
+                    audio_to_transcribe_raw = audio_to_transcribe_raw[:-remainder_size]
+                    feedback_buffer_chunks = [remainder_chunk]
+                else:
+                    feedback_buffer_chunks = []
+
+                # フィードバック用音声ファイルを保存
+                feedback_count += 1
+                feedback_filename = f"feedback_{feedback_count:03d}.wav"
+                feedback_filepath = os.path.join(self.sound_file_directory, feedback_filename)
+                self._save_buffer_to_wav([audio_to_transcribe_raw], feedback_filepath, self.sample_rate, self.channels)
+
+                audio_to_transcribe_np = np.frombuffer(audio_to_transcribe_raw, dtype=np.int16).astype(np.float32) / 32768.0
 
                 try:
-                    resampled = self.resample_audio(audio_concat, self.sample_rate, 16000, self.channels)
-                    start_infer = time.time()
+                    resampled = self.resample_audio(audio_to_transcribe_np, self.sample_rate, 16000, self.channels)
                     with torch.no_grad():
                         result = self.model.transcribe([resampled])
-                    if result and result[0].text:
+
+                    if result and result[0].text.strip():
                         fb = SpeechRecognition.Feedback()
                         fb.addition_text = result[0].text
                         goal_handle.publish_feedback(fb)
-                        self.get_logger().info(f"Feedback: {result[0].text}, Score: {result[0].score:.2f}, Inference time: {time.time() - start_infer:.3f} sec")
+                        self.get_logger().info(f"Feedback: {result[0].text}, Score: {result[0].score:.2f}")
+
                 except Exception as e:
-                    self.get_logger().warn(f"Recognition failed: {e}")
+                    self.get_logger().warn(f"Recognition failed during feedback: {e}")
 
-        try:
-            with wave.open(self.wav_path, 'wb') as wf:
-                wf.setnchannels(self.channels)
-                wf.setsampwidth(2)
-                wf.setframerate(self.sample_rate)
-                wf.writeframes(b''.join(all_audio))
-            self.get_logger().info(f"Audio saved to: {self.wav_path}")
-        except Exception as e:
-            self.get_logger().error(f"Failed to save audio: {e}")
+        # 録音プロセスの終了
+        if self.parec_proc:
+            self.parec_proc.terminate()
+        thread.join(timeout=2.0)
+        
+        # 最終音声ファイルの保存
+        if raw_audio_chunks:
+            self._save_buffer_to_wav(raw_audio_chunks, self.wav_path, self.sample_rate, self.channels)
+            self.get_logger().info(f"Final audio saved to: {self.wav_path}")
 
+        # 最終的な音声認識
         try:
-            audio_data = np.frombuffer(b''.join(all_audio), dtype=np.int16).astype(np.float32) / 32768.0
-            resampled = self.resample_audio(audio_data, self.sample_rate, 16000, self.channels)
-            start_infer = time.time()
-            with torch.no_grad():
-                result = self.model.transcribe([resampled])
-            response.result_text = result[0].text if result and result[0].text else "No speech recognized."
-            self.get_logger().info(f"Result: {response.result_text}, Score: {result[0].score:.2f}, Inference time: {time.time() - start_infer:.3f} sec")
+            audio_data = np.frombuffer(b''.join(raw_audio_chunks), dtype=np.int16).astype(np.float32) / 32768.0
+            if audio_data.size == 0:
+                response.result_text = "No audio recorded."
+            else:
+                resampled = self.resample_audio(audio_data, self.sample_rate, 16000, self.channels)
+                with torch.no_grad():
+                    result = self.model.transcribe([resampled])
+                response.result_text = result[0].text if result and result[0].text.strip() else "No speech recognized."
+                self.get_logger().info(f"Final Result: {response.result_text}, Score: {result[0].score:.2f}")
         except Exception as e:
             response.result_text = f"Recognition error: {e}"
+            self.get_logger().error(f"Final recognition failed: {e}")
 
         if not silent:
             threading.Thread(target=self.play_sound, args=('end_sound.mp3',), daemon=True).start()
 
         goal_handle.succeed()
         return response
+
+    def _cleanup_files(self):
+        wip_files = glob.glob(os.path.join(self.sound_file_directory, "*.wav"))
+        for f in wip_files:
+            try:
+                os.remove(f)
+                self.get_logger().info(f"Removed old WAV file: {f}")
+            except Exception as e:
+                self.get_logger().warn(f"Failed to remove WAV file {f}: {e}")
+    
+    def _save_buffer_to_wav(self, frames, file_path, sample_rate, channels):
+        if not frames:
+            self.get_logger().warn("No frames to save.")
+            return False
+        
+        try:
+            with wave.open(file_path, 'wb') as wf:
+                wf.setnchannels(channels)
+                wf.setsampwidth(2) # 16bit = 2 bytes
+                wf.setframerate(sample_rate)
+                wf.writeframes(b"".join(frames))
+            return True
+        except Exception as e:
+            self.get_logger().error(f"Failed to save WAV file: {e}")
+            return False
 
 
 def main(args=None):
