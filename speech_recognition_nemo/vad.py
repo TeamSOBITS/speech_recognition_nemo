@@ -27,15 +27,14 @@ class VadProcessor(Node):
             self.get_logger().info("VAD model 'ten_vad' loaded.")
         else:
             self.get_logger().warn(f"Unknown VAD name: {self.vad_name}. Falling back to time-based VAD logic.")
-            self.vad_model = None
 
     def get_hop_size(self):
         self.hop_size = self.get_parameter('hop_size').get_parameter_value().integer_value
         self.threshold = self.get_parameter('threshold').get_parameter_value().double_value
         self.vad_chunk_size_bytes = 2 * 1 * self.hop_size         
-        return self.hop_size, self.vad_chunk_size_bytes
+        return self.hop_size, self.vad_chunk_size_bytes, self.vad_name
     
-    def vad_processor(self, resampled_data):
+    def vad_processor(self, resampled_data, feedback_rate):
         if self.vad_model:
             audio_np = np.frombuffer(resampled_data, dtype=np.int16)
             prob, _ = self.vad_model.process(audio_np)
@@ -44,9 +43,9 @@ class VadProcessor(Node):
             return is_voice
         else:
             current_time = time.time()
-            if current_time - self.last_false_time >= 0.1: 
+            if current_time - self.last_false_time >= feedback_rate: 
                 self.last_false_time = current_time
-                self.get_logger().info(f"Not recognizing (time-based)")
+                self.get_logger().info(f"Not recognizing ({feedback_rate}s interval)")
                 return False
             else:
                 self.get_logger().info("Recognizing (time-based)")

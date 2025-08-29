@@ -66,14 +66,12 @@ class NemoServer(Node):
             self.get_logger().fatal(f"Model loading failed: {e}")
             return
         
-        self.vad_processor = None
-        self.hop_size = None
-        self.vad_chunk_size_bytes = None
+        self.vad_processor = None       
         
         if self.use_feedback_enabled:
             from .vad import VadProcessor
             self.vad_processor = VadProcessor(self)
-            self.hop_size, self.vad_chunk_size_bytes = self.vad_processor.get_hop_size()
+            self.hop_size, self.vad_chunk_size_bytes, self.vad_name = self.vad_processor.get_hop_size()
             self.get_logger().info(f"VAD model loaded.")
 
         self.action_server = ActionServer(
@@ -169,6 +167,7 @@ class NemoServer(Node):
         timeout_sec = goal_handle.request.timeout_sec
         self.get_logger().info(f"Recording started for {timeout_sec} seconds")
         silent = goal_handle.request.silent_mode
+        feedback_rate = goal_handle.request.feedback_rate
         
         audio_q = queue.Queue()
         all_audio_buffer = []
@@ -248,7 +247,7 @@ class NemoServer(Node):
                     vad_chunk = vad_audio_buffer[:self.hop_size]
                     vad_audio_buffer = vad_audio_buffer[self.hop_size:]
 
-                    is_voice_now = self.vad_processor.vad_processor(vad_chunk.tobytes())
+                    is_voice_now = self.vad_processor.vad_processor(vad_chunk.tobytes(), feedback_rate)
                 
                     if is_voice_now:
                         if not is_speaking:
@@ -258,9 +257,8 @@ class NemoServer(Node):
                         is_speaking = True
                     else:
                         if is_speaking:
-                            post_audio_buffer.append(vad_chunk)
-                            
-                            if len(post_audio_buffer) == post_audio_buffer.maxlen:
+                            post_audio_buffer.append(vad_chunk)  
+                            if self.vad_name == "None" or len(post_audio_buffer) == post_audio_buffer.maxlen:
                                 is_speaking = False
 
                                 duration_sec = len(audio_buffer) * self.hop_size / 16000
