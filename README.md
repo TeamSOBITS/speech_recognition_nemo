@@ -139,13 +139,18 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 | min_wipe_duration | ノイズを無視し音声認識するために必要な声の最短の長さ．VADが発話と認識した区間がこの秒数より短い場合，ノイズとして無視され音声認識の処理を行わない． | 0.2 |
 | extra_audio_duration_sec | フィードバックごとに音声の前後に含める追加のオーディオ時間 | 0.2 | 
 
+- `model_name`, `use_feedback`, `vad_name`以外のパラメータはlaunchファイル起動後でも変更可能です．
+  - 例：`min_wipe_duration`を0.1に変更する場合
+    ```sh
+    ros2 param set /nemo_asr_action_server min_wipe_duration 0.1
+    ```
+
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
 ## マイルストーン
 
 現時点のバッグや新規機能の依頼を確認するためにIssueページ をご覧ください．
-- 最終認識結果の音声ファイルの保存
-- VAD未使用時のフィードバック動作の改善
+- 録音開始から終了までの音声ファイルの保存
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
