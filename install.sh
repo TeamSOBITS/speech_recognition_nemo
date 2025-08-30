@@ -17,6 +17,7 @@ echo "System dependencies installed."
 
 echo "--- Installing Python packages via pip3 ---"
 
+pip3 install typing_extensions
 pip3 install nemo_toolkit[asr]
 echo "Finish to install NeMo"
 
