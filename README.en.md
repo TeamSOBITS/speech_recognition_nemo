@@ -36,6 +36,8 @@
 
 Speech Recognition NeMo is a package that integrates the Automatic Speech Recognition (ASR) capabilities of the NeMo Framework with ROS2 Action communication. It provides fast and accurate speech recognition.
 
+Use with a PC equipped with a GPU is recommended.
+
 The NVIDIA NeMo Framework is a scalable, cloud-native generative AI framework built for researchers and PyTorch developers working in Large Language Models (LLM), Multimodal Models (MM), Automatic Speech Recognition (ASR), Text-to-Speech (TTS), and Computer Vision (CV).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

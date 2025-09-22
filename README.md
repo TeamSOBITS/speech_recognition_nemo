@@ -37,6 +37,7 @@
 
 Speech Recognition NeMoは，NeMo Frameworkの自動音声認識（ASR）機能をROS2のアクション通信に対応させたものです．高速で高精度な音声認識を提供します．
 
+GPUを搭載したPCでの使用を推奨します．
 
 NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモーダルモデル（MM），自動音声認識（ASR），テキスト読み上げ（TTS），そしてコンピュータービジョン（CV）の分野に取り組む研究者やPyTorch開発者向けに構築された，スケーラブルでクラウドネイティブな生成AIフレームワークです．
 
