@@ -47,4 +47,10 @@ echo "--- Installing VAD ---"
 pip3 install -U --force-reinstall -v git+https://github.com/TEN-framework/ten-vad.git
 sudo apt install libc++1 -y
 
+echo "--- Install numba ---"
+pip3 install --force-reinstall numba==0.61.2
+
+echo "--- Install coverage ---"
+pip3 install --force-reinstall coverage==6.2
+
 echo "╚══╣ Install: speech_recognition_nemo (FINISHED) ╠══╝"
