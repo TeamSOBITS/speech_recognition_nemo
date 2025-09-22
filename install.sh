@@ -12,6 +12,8 @@ sudo apt update -y
 
 sudo apt install pulseaudio-utils -y
 
+sudo apt install ffmpeg -y
+
 yes | sudo apt install -y ros-humble-vision-msgs
 echo "System dependencies installed."
 
