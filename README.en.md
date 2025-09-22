@@ -162,8 +162,6 @@ Changing these values will not affect the final recognition result.
 
 Check the Issues page to view current bugs and feature requests.
 
-  - Saving audio files from the start to the end of a recording
-
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
 ## References

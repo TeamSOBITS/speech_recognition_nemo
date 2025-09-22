@@ -151,7 +151,6 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 ## マイルストーン
 
 現時点のバッグや新規機能の依頼を確認するためにIssueページ をご覧ください．
-- 録音開始から終了までの音声ファイルの保存
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 

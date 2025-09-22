@@ -322,12 +322,23 @@ class NemoServer(Node):
         
         if all_audio_buffer:
             final_audio_data = np.concatenate(all_audio_buffer).astype(np.float32) / 32768.0 
+            final_audio_data_int16 = np.concatenate(all_audio_buffer).astype(np.int16)
+            final_wav_path = os.path.join(self.sound_file_directory, "final_output.wav")
+            if self._save_buffer_to_wav(final_audio_data_int16, final_wav_path, 16000, 1):
+                self.get_logger().info(f"Final audio saved to {final_wav_path}")
+            else:
+                self.get_logger().warn(f"Failed to save final audio to {final_wav_path}")
+
+            final_audio_data = final_audio_data_int16.astype(np.float32) / 32768.0
 
             if final_audio_data.size > 0:
                 try:
                     with torch.no_grad():
                         result = self.model.transcribe([final_audio_data])
                     response.result_text = result[0].text if result and result[0].text.strip() else "No speech recognized."
+                    text = result[0].text if result and result[0].text.strip() else "No speech recognized."
+                    response.result_text = text
+                    self.get_logger().info(f"Final Result: {text}")
                 except Exception as e:
                     self.get_logger().error(f"Final recognition error: {e}")
             # Add the function to save final_audio_data in wav file.
@@ -348,7 +359,11 @@ class NemoServer(Node):
                 self.get_logger().warn(f"Failed to remove WAV file {f}: {e}")
     
     def _save_buffer_to_wav(self, frames, file_path, sample_rate, channels):
-        if not frames:
+        if isinstance(frames, np.ndarray):
+            if frames.size == 0:
+                self.get_logger().warn("No frames to save.")
+                return False
+        elif not frames:
             self.get_logger().warn("No frames to save.")
             return False
         
