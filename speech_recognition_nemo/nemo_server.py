@@ -36,8 +36,7 @@ class NemoServer(Node):
         
         self.SOUND_FILES_PATH = os.path.join(get_package_share_directory('sobits_interfaces'), 'mp3')
         share_dir = get_package_share_directory('speech_recognition_nemo')
-        self.sound_file_directory = os.path.join(os.path.abspath(os.path.join(share_dir, '..', '..', '..', '..')),
-                                                 'src', 'speech_recognition_nemo', 'sound_file')
+        self.sound_file_directory = os.path.join(share_dir, 'sound_file')
         os.makedirs(self.sound_file_directory, exist_ok=True)
         self.wav_path = os.path.join(self.sound_file_directory, 'output.wav')
         self.get_logger().info(f"Output path: {self.wav_path}")
