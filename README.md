@@ -76,6 +76,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 4. 依存パッケージをインストールします．時間がかかるので注意．
     ```sh
     bash install.sh
+    ```
 5. パッケージをコンパイルします．
     ```sh
     cd ~/colcon_ws/
@@ -98,9 +99,17 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
    ```sh
    ros2 launch speech_recognition_nemo nemo_server.launch.py 
    ```
-3. アクションクライアントを起動し，発話させたい文字を送信します．
+3. アクションクライアントを起動します．
+  - timeout_sec: マイクを開く秒数
+  - silent_mode: trueのときは検出時と終了時に音がならない
+  - feedback_rate: `use_feedback`が`True`で`vad_name`が`None`のときに返ってくる途中の音声認識結果の頻度
+    ```sh
+    ros2 action send_goal /speech_recognition sobits_interfaces/action/SpeechRecognition "timeout_sec: 5 
+    silent_mode: false
+    feedback_rate: 0.5" -f
+    ```
 
-    録音された音声は**sound_file**ディレクトリに保存されます．
+  録音された音声は**sound_file**ディレクトリに保存されます．
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
@@ -110,6 +119,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 | パラメータ | 説明 | デフォルト値 |
 | --- | --- | --- |
 | model_name | 音声認識モデルの名前 *| nvidia/parakeet-tdt-0.6b-v2 |
+| mic_volume	| マイクの入力音量をパーセンテージで設定する．プログラム終了後は元の音量に戻る．例: "150" | "" |
 | use_feedback | Feedbackを使用するかどうか | True |
 
 
@@ -127,7 +137,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 
 2. [nemo_server.launch.py](launch/nemo_server.launch.py )の**model_name**も同様に，使用するモデル名に書き換えてください．
 
-\
+---
 以下はFeedbackに関するパラメータです．
 `use_feedback`が`True`のときのみ有効です．
 以下の値を変更しても最終認識結果には影響しません．
@@ -140,7 +150,17 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 | min_wipe_duration | ノイズを無視し音声認識するために必要な声の最短の長さ．VADが発話と認識した区間がこの秒数より短い場合，ノイズとして無視され音声認識の処理を行わない． | 0.2 |
 | extra_audio_duration_sec | フィードバックごとに音声の前後に含める追加のオーディオ時間 | 0.2 | 
 
-- `model_name`, `use_feedback`, `vad_name`以外のパラメータはlaunchファイル起動後でも変更可能です．
+---
+以下はエコーキャンセルに関するパラメータです． `use_echo_cancel`が`True`のときに有効です．
+
+| パラメータ | 説明 | デフォルト値 |
+| --- | --- | --- |
+| use_echo_cancel | エコーキャンセルを使用するかどうか | False |
+| noise_suppression | ノイズを抑制する．| False |
+| analog_gain_control | マイクのハードウェアレベルで入力音量を自動調整する．大きな音は抑え，小さな音は増幅することで音割れや聞き取りにくさを防ぐ． | False |
+| digital_gain_control | マイクのソフトウェアレベルで入力音量を自動調整する． | False |
+
+- `model_name`, `use_feedback`, `vad_name`とエコーキャンセル関連以外のパラメータはlaunchファイル起動後でも変更可能です．
   - 例：`min_wipe_duration`を0.1に変更する場合
     ```sh
     ros2 param set /nemo_asr_action_server min_wipe_duration 0.1
@@ -158,6 +178,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 * [NeMo overview](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html)
 * [NeMo github](https://github.com/NVIDIA/NeMo)
 * [TEN VAD](https://github.com/TEN-framework/ten-vad)
+* [module-echo-cancel](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Modules/?utm_source=chatgpt.com#module-echo-cancel)
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 

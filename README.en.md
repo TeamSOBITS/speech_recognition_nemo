@@ -76,6 +76,7 @@ First, ensure you have the following environment set up before proceeding to the
 4. Install dependencies. Note that this may take some time.
     ```sh
     bash install.sh
+    ```
 5. Compile the package.
     ```sh
     cd ~/colcon_ws/
@@ -98,17 +99,19 @@ First, ensure you have the following environment set up before proceeding to the
    ```sh
    ros2 launch speech_recognition_nemo nemo_server.launch.py 
    ```
-3. Start the Action Client and send the text you want to speak.
-
-    It is recommended to set the feedback interval to at least 1.5 seconds.
+3. Start the Action Client.
+    - timeout_sec: The duration in seconds the microphone will remain open for listening.
+    - silent_mode: When set to 'true', sound feedback is disabled at the start of detection and upon termination.
+    - feedback_rate: The frequency at which intermediate speech recognition results are returned when 'use_feedback' is set to 'True' and 'vad_name' is set to 'None'. (Measured in seconds, e.g., 0.5 means every 0.5 seconds.)
+    ```sh
+    ros2 action send_goal /speech_recognition sobits_interfaces/action/SpeechRecognition "timeout_sec: 5 
+    silent_mode: false
+    feedback_rate: 0.5" -f
+    ```
 
     Recorded audio is saved in the **sound_file** directory.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
-
-I can definitely translate that for you. Here is the English version of the text you provided, keeping the same structure and formatting.
-
-
 
 ## Parameters
 
@@ -117,6 +120,7 @@ You can specify the following parameters in **[nemo_server.launch.py](launch/nem
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | model_name | The name of the speech recognition model *| nvidia/parakeet-tdt-0.6b-v2 |
+| mic_volume | Sets the microphone input volume as a percentage. When finish program, the original volume will be restored. e.g., "150"	| "" |
 | use_feedback | Whether to use Feedback | True |
 
 *The following languages are supported:
@@ -135,7 +139,7 @@ To change the language from English or use a different model, follow these steps
 
 2.  Similarly, replace the **model_name** in **[nemo_server.launch.py](launch/nemo_server.launch.py)** with the name of the model you want to use.
 
-
+---
 The following are parameters related to Feedback.
 They are only effective when `use_feedback` is set to `True`.
 Changing these values will not affect the final recognition result.
@@ -148,7 +152,17 @@ Changing these values will not affect the final recognition result.
 | min_wipe_duration | The minimum required duration of a voice to be processed for speech recognition, ignoring noise. If a section recognized as speech by VAD is shorter than this duration, it will be ignored as noise and not processed for speech recognition. | 0.2 |
 | extra_audio_duration_sec | Additional audio time to include before and after the audio for each feedback. | 0.2 |
 
-  - Parameters other than `model_name`, `use_feedback`, and `vad_name` can be changed after the launch file is started.
+---
+The following are parameters related to echo cancellation.
+
+| Parameter | Description |	Default Value|
+| --- | --- | --- |
+| use_echo_cancel | It helps prevent the microphone from picking up audio from the speakers. | False |
+| noise_suppression | Toggles the noise suppression feature. | False |
+| analog_gain_control | Automatically adjusts the microphone input volume at the hardware level. It suppresses loud sounds and amplifies quiet ones to prevent clipping and improve clarity. | False |
+| digital_gain_control | Automatically adjusts the input volume at the software level. It modifies the amplitude after the audio data has been digitized. | False |
+
+  - Parameters other than `model_name`, `use_feedback`, `vad_name`, and those related to echo cancellation can be changed after the launch file is started.
       - Example: To change `min_wipe_duration` to 0.1
         ```sh
         ros2 param set /nemo_asr_action_server min_wipe_duration 0.1
@@ -168,6 +182,7 @@ Check the Issues page to view current bugs and feature requests.
 * [NeMo overview](https://docs.nvidia.com/nemo-framework/user-guide/latest/overview.html)
 * [NeMo github](https://github.com/NVIDIA/NeMo)
 * [TEN VAD](https://github.com/TEN-framework/ten-vad)
+* [module-echo-cancel](https://www.freedesktop.org/wiki/Software/PulseAudio/Documentation/User/Modules/?utm_source=chatgpt.com#module-echo-cancel)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 

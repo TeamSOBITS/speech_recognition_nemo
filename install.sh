@@ -14,7 +14,6 @@ sudo apt install pulseaudio-utils -y
 
 sudo apt install ffmpeg -y
 
-yes | sudo apt install -y ros-humble-vision-msgs
 echo "System dependencies installed."
 
 echo "--- Installing Python packages via pip3 ---"
@@ -39,12 +38,6 @@ cd "$SCRIPT_DIR" || { echo "Error: Could not return to $SCRIPT_DIR"; exit 1; }
 pip3 uninstall setuptools -y
 pip3 install setuptools==65.5.1
 
-echo "--- Downloading NeMo ASR models ---"
-cd "$SCRIPT_DIR/speech_recognition_nemo" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
-python3 model_download.py
-echo "NeMo ASR models downloaded."
-
-
 echo "--- Installing VAD ---"
 pip3 install -U --force-reinstall -v git+https://github.com/TEN-framework/ten-vad.git
 sudo apt install libc++1 -y
@@ -54,5 +47,12 @@ pip3 install --force-reinstall numba==0.61.2
 
 echo "--- Install coverage ---"
 pip3 install --force-reinstall coverage==6.2
+
+pip3 install --force-reinstall numpy== 1.24.4
+
+echo "--- Downloading NeMo ASR models ---"
+cd "$SCRIPT_DIR/speech_recognition_nemo" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
+python3 model_download.py
+echo "NeMo ASR models downloaded."
 
 echo "╚══╣ Install: speech_recognition_nemo (FINISHED) ╠══╝"
