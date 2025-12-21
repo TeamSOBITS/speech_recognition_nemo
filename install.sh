@@ -48,7 +48,7 @@ pip3 install --force-reinstall numba==0.61.2
 echo "--- Install coverage ---"
 pip3 install --force-reinstall coverage==6.2
 
-pip3 install --force-reinstall numpy== 1.24.4
+pip3 install --force-reinstall numpy==1.24.4
 
 echo "--- Downloading NeMo ASR models ---"
 cd "$SCRIPT_DIR/speech_recognition_nemo" || { echo "Error: Could not change to $SCRIPT_DIR"; exit 1; }
