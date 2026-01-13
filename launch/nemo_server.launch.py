@@ -12,10 +12,16 @@ def generate_launch_description():
         description='STT Model Name (en: "nvidia/parakeet-tdt-0.6b-v2", jp: "nvidia/parakeet-tdt_ctc-0.6b-ja").'
     )
 
+    device_arg = DeclareLaunchArgument(
+        "device",
+        default_value="",
+        description="Device: cuda or cpu."
+    )
+
     mic_volume_arg = DeclareLaunchArgument(
         'mic_volume',
-        default_value='',
-        description='Mic volume config'
+        default_value="",
+        description="Microphone volume percentage (e.g. 150)"
     )
 
     use_feedback_arg = DeclareLaunchArgument(
@@ -54,6 +60,12 @@ def generate_launch_description():
         description='Extra Audio Duration Sec'
     )
 
+    max_speech_duration_arg = DeclareLaunchArgument(
+        "max_speech_duration",
+        default_value="30.0",
+        description="Maximum speech duration before forcing feedback"
+    )
+
     use_echo_cancel_arg = DeclareLaunchArgument(
         'use_echo_cancel',
         default_value='False',
@@ -85,6 +97,7 @@ def generate_launch_description():
         parameters=[
             {
                 'model_name': LaunchConfiguration("model_name"),
+                "device": LaunchConfiguration("device"),
                 'mic_volume': LaunchConfiguration("mic_volume"),
                 'use_feedback': LaunchConfiguration("use_feedback"),
                 'vad_name': LaunchConfiguration("vad_name"),
@@ -92,6 +105,7 @@ def generate_launch_description():
                 'threshold': LaunchConfiguration("threshold"),
                 'min_wipe_duration': LaunchConfiguration("min_wipe_duration"),
                 'extra_audio_duration_sec': LaunchConfiguration("extra_audio_duration_sec"),
+                "max_speech_duration": LaunchConfiguration("max_speech_duration"),
                 'use_echo_cancel': LaunchConfiguration("use_echo_cancel"),
                 'noise_suppression': LaunchConfiguration("noise_suppression"),
                 'analog_gain_control': LaunchConfiguration("analog_gain_control"),
@@ -103,6 +117,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         model_name_arg,
+        device_arg,
         mic_volume_arg,
         use_feedback_arg,
         vad_name_arg,
@@ -110,6 +125,7 @@ def generate_launch_description():
         threshold_arg,
         min_wipe_duration_arg,
         extra_audio_duration_sec_arg,
+        max_speech_duration_arg,
         use_echo_cancel_arg,
         noise_suppression_arg,
         analog_gain_control_arg,

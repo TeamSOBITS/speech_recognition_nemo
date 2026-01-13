@@ -100,7 +100,7 @@ First, ensure you have the following environment set up before proceeding to the
    ros2 launch speech_recognition_nemo nemo_server.launch.py 
    ```
 3. Start the Action Client.
-    - timeout_sec: The duration in seconds the microphone will remain open for listening.
+    - timeout_sec: Duration (in seconds) to keep the microphone open. If a negative value is provided, it continues to return feedback until a cancel request is sent.
     - silent_mode: When set to 'true', sound feedback is disabled at the start of detection and upon termination.
     - feedback_rate: The frequency at which intermediate speech recognition results are returned when 'use_feedback' is set to 'True' and 'vad_name' is set to 'None'. (Measured in seconds, e.g., 0.5 means every 0.5 seconds.)
     ```sh
@@ -120,6 +120,7 @@ You can specify the following parameters in **[nemo_server.launch.py](launch/nem
 | Parameter | Description | Default Value |
 | --- | --- | --- |
 | model_name | The name of the speech recognition model *| nvidia/parakeet-tdt-0.6b-v2 |
+| device	 | Computing device to use (`cpu` or `cuda`). If left empty, it automatically selects GPU if available, otherwise falls back to CPU.	| "" |
 | mic_volume | Sets the microphone input volume as a percentage. When finish program, the original volume will be restored. e.g., "150"	| "" |
 | use_feedback | Whether to use Feedback | True |
 
@@ -151,6 +152,7 @@ Changing these values will not affect the final recognition result.
 | threshold | The probability threshold for the VAD model to detect speech. A higher value reduces false positives, but quiet or faint voices may be ignored. | 0.5 |
 | min_wipe_duration | The minimum required duration of a voice to be processed for speech recognition, ignoring noise. If a section recognized as speech by VAD is shorter than this duration, it will be ignored as noise and not processed for speech recognition. | 0.2 |
 | extra_audio_duration_sec | Additional audio time to include before and after the audio for each feedback. | 0.2 |
+| max_speech_duration | Maximum duration (in seconds) to segment a single utterance. | 30.0 |
 
 ---
 The following are parameters related to echo cancellation.
