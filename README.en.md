@@ -52,10 +52,10 @@ This section describes how to set up this repository.
 ### Prerequisites
 First, ensure you have the following environment set up before proceeding to the installation steps.
 | System  | Version |
-| --- | --- |
-| Ubuntu | 22.04 (Jammy Jellyfish) |
-| ROS    | Humble Hawksbill |
-| Python | 3.10 |
+| ------------- | ------------- |
+| Ubuntu | 24.04 (Noble Numbat) |
+| ROS | Jazzy Jalisco |
+| Python | 3.12 |
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -121,7 +121,7 @@ You can specify the following parameters in **[nemo_server.launch.py](launch/nem
 | --- | --- | --- |
 | model_name | The name of the speech recognition model *| nvidia/parakeet-tdt-0.6b-v2 |
 | device	 | Computing device to use (`cpu` or `cuda`). If left empty, it automatically selects GPU if available, otherwise falls back to CPU.	| "" |
-| mic_volume | Sets the microphone input volume as a percentage. When finish program, the original volume will be restored. e.g., "150"	| "" |
+| mic_volume | Sets the microphone input volume as a percentage. When finish program, the original volume will be restored. e.g., "150%"	| "" |
 | use_feedback | Whether to use Feedback | True |
 
 *The following languages are supported:

@@ -52,10 +52,10 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 ### 環境条件
 まず，以下の環境を整えてから，次のインストール方法に進んでください．
 | System  | Version |
-| --- | --- |
-| Ubuntu | 22.04 (Jammy Jellyfish) |
-| ROS    | Humble Hawksbill |
-| Python | 3.10 |
+| ------------- | ------------- |
+| Ubuntu | 24.04 (Noble Numbat) |
+| ROS | Jazzy Jalisco |
+| Python | 3.12 |
 
 <p align="right">(<a href="#readme-top">上に戻る</a>)</p>
 
@@ -120,7 +120,7 @@ NVIDIA NeMo Frameworkは，大規模言語モデル（LLM），マルチモー�
 | --- | --- | --- |
 | model_name | 音声認識モデルの名前 *| nvidia/parakeet-tdt-0.6b-v2 |
 | device | 使用する計算デバイス (`cpu` or `cuda`)．空の場合，利用可能なGPUがあれば優先的に選択し，なければCPUが自動選択される．| "" |
-| mic_volume	| マイクの入力音量をパーセンテージで設定する．プログラム終了後は元の音量に戻る．例: "150" | "" |
+| mic_volume	| マイクの入力音量をパーセンテージで設定する．プログラム終了後は元の音量に戻る．例: "150%" | "" |
 | use_feedback | Feedbackを使用するかどうか | True |
 
 

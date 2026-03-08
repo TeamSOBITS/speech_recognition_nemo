@@ -3,8 +3,12 @@ from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
-
 def generate_launch_description():
+    stt_engine_arg = DeclareLaunchArgument(
+        'stt_engine',
+        default_value='nemo',
+        description='Selection of STT Engine: "nemo"',
+    )
 
     model_name_arg = DeclareLaunchArgument(
         'model_name',
@@ -75,7 +79,7 @@ def generate_launch_description():
     noise_suppression_arg = DeclareLaunchArgument(
         'noise_suppression',
         default_value='False',
-        description='Extra Audio Duration Sec'
+        description='Noise Suppression'
     )
 
     analog_gain_control_arg = DeclareLaunchArgument(
@@ -96,6 +100,7 @@ def generate_launch_description():
         name='nemo_asr_action_server',
         parameters=[
             {
+                'stt_engine': LaunchConfiguration("stt_engine"),
                 'model_name': LaunchConfiguration("model_name"),
                 "device": LaunchConfiguration("device"),
                 'mic_volume': LaunchConfiguration("mic_volume"),
@@ -116,6 +121,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        stt_engine_arg,
         model_name_arg,
         device_arg,
         mic_volume_arg,
